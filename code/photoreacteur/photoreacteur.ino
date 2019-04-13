@@ -152,7 +152,9 @@ void MF_button(String text, String action, bool select = false, bool center=true
 // -- Les menus --
 // Menu principal avec quel bouton sélectionné (0=aucun, 1-3)
 void M_Menu(int selected = 0){
+  LOC = "home";
   select = true;
+  maxSelect = 3;
   MF_leds(LED_G);
   MF_reset();
   MF_title("MENU");
@@ -171,14 +173,25 @@ void M_Menu(int selected = 0){
  * - changer de chiffre
  */
 void M_Duration(int selected=1){
+  LOC = "duration";
   select = true;
+  maxSelect = 7;
   MF_leds(LED_G);
   MF_reset();
-  MF_title("Duree exp.");
+  MF_title("DUREE EXPERIENCE");
+  MF_text("HH:MM:SS", "C");
+  MF_text_big("00:00:00", "C");
+  if(CURSOR < 7){
+	LCD.CursorGotoXY(128/2-8*8/2-1 + 8*(( (CURSOR == 0) ? 1 : CURSOR )-1), MF_pos[1]-16-MF_spacing, 8, 16);
+	LCD.CursorConf(ON, 10);
+  }
+  MF_button("Annuler", (selected==7)? true:false);
 }
 
 // Informations sur le photoréacteur
 void M_Infos(){
+  LOC = "infos";
+  select = false;
   MF_leds(LED_G);
   MF_reset();
   MF_title("INFORMATIONS");
@@ -198,6 +211,8 @@ void M_Infos(){
  * - comment résoudre (concis)
  */
 void M_Error(int errID=0){
+  LOC = "error";
+  select = false;
   MF_leds(LED_R);
   MF_reset();
   MF_title("ERREUR");
@@ -225,7 +240,16 @@ int valEncodeurPrev = 0;
 
 // Gestion du click et actions
 void clickGestionary(){
-
+  if(LOC == "home"){
+    switch (CURSOR)
+    {
+      case 3:
+        M_Infos();
+        break;
+    }
+  }else if(LOC == "infos"){
+    M_Menu();
+  }
 }
 
 // Gestion de la rotation et actions (1 rotation horaire/trigo = H/T)
@@ -305,8 +329,9 @@ void loop() {
   // Rafraîchissement de l'écran
   if(refreshScreen){
     if(LOC == "home"){
-      Serial.println(CURSOR);
       M_Menu(CURSOR);
-    }
+    }else if(LOC == "duration"){
+		//M_Duration(CURSOR);
+	}
   }
 }

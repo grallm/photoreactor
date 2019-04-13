@@ -21,7 +21,11 @@ const int luminosite = 100, // en %
     LED_G = 5; // Pin LED encodeur verte
 
 // Localisation
-string LOC = "home";
+String LOC = "home";
+
+// Sélection
+bool select = true;
+int maxSelect = 3;
 
 // -- Fonctions de formattage --
 /*
@@ -93,7 +97,7 @@ void MF_text(String text, String place = "HL"){
   int posY = MF_pos[1];
   if(place=="BR"){ // Placer le texte
     posX = FF_placeX(text,6,"R");
-    posY = FF_placeY(text,6,"B");
+    posY = FF_placeY(text,8,"B");
   }else if(place=="C"){
     posX = FF_placeX(text,6,"C");
   }
@@ -103,13 +107,27 @@ void MF_text(String text, String place = "HL"){
   MF_pos[0]=0;
   MF_pos[1]+=8+MF_spacing;
 }
+// Ecrire du texte plus gros
+void MF_text_big(String text, String place = "HL"){
+  LCD.FontModeConf(Font_8x16_1, FM_ANL_AAA, BLACK_NO_BAC);
+
+  int posX = 0;
+  int posY = MF_pos[1];
+  if(place=="BR"){ // Placer le texte
+    posX = FF_placeX(text,8,"R");
+    posY = FF_placeY(text,16,"B");
+  }else if(place=="C"){
+    posX = FF_placeX(text,8,"C");
+  }
+  
+  LCD.DispStringAt(text.c_str(), posX, posY);
+  
+  MF_pos[0]=0;
+  MF_pos[1]+=16+MF_spacing;
+}
 
 // Boutton avec cadre, noir si sélectionné, avec une action (redirection, éteindre)
-void MF_button(String text, String action, bool select = false, bool center=true){
-  /*
-   * TODO
-   * - actions
-   */
+void MF_button(String text, bool select = false, bool center=true){
   int posX=0;
   if(center){ // Centrer le texte
     posX = FF_placeX(text,6);
@@ -138,17 +156,65 @@ void MF_button(String text, String action, bool select = false, bool center=true
 // -- Les menus --
 // Menu principal avec quel bouton sélectionné (0=aucun, 1-3)
 void M_Menu(int selected = 0){
+  LOC = "home";
+  select = true;
+  maxSelect = 3;
   MF_leds(LED_G);
   MF_reset();
   MF_title("MENU");
-  MF_button("Lancer Experience", "", (selected==1)? true:false);
-  MF_button("Aide", "", (selected==2)? true:false);
-  MF_button("Infos", "", (selected==3)? true:false);
+  MF_button("Lancer Experience", (selected==1)? true:false);
+  MF_button("Aide", (selected==2)? true:false);
+  MF_button("Infos", (selected==3)? true:false);
   MF_text("v"+version, "BR");
+}
+
+// Sélection durée
+/*
+ * TODO
+ * - curseur
+ * - sélectionner valeur en tournant
+ * - passe de 9 à 10
+ * - changer de chiffre
+ */
+int M_Duration_val[7] = {0,0,0,0,0,0};
+void M_Duration(int selected=1, int value=1){
+  LOC = "duration";
+  select = true;
+  maxSelect = 10;
+  
+  MF_leds(LED_G);
+  MF_reset();
+  MF_title("DUREE EXPERIENCE");
+  MF_text("HH:MM:SS", "C");
+  if(selected < 7 && selected > 0){
+    // Placer le curseur sur le chiffre à modifier
+    int charCursor = 0; // Bien placer cursuer
+    if(selected == 2){
+      charCursor = 1;
+    }else if(selected == 3 || selected == 4){
+      charCursor = selected;
+    }else if(selected == 5 || selected == 6){
+      charCursor = selected+1;
+    }
+    LCD.CursorGotoXY(128/2-8*8/2-1 + 8*charCursor, MF_pos[1], 8, 16);
+    Serial.println(128/2-8*8/2-1 + 8*charCursor);
+    Serial.println(MF_pos[1]-16-MF_spacing);
+    LCD.CursorConf(ON, 10);
+
+    // Affecteur/Afficher la valeur choisie
+    M_Duration_val[selected-1] = value-1;
+  }else
+  {
+    LCD.CursorConf(OFF, 10);
+  }
+  MF_text_big(String(M_Duration_val[0])+String(M_Duration_val[1]) +":"+ String(M_Duration_val[2])+String(M_Duration_val[3]) +":"+ String(M_Duration_val[4])+String(M_Duration_val[5]), "C");
+  MF_button("Annuler", (selected==7)? true:false);
 }
 
 // Informations sur le photoréacteur
 void M_Infos(){
+  LOC = "infos";
+  select = false;
   MF_leds(LED_G);
   MF_reset();
   MF_title("INFORMATIONS");
@@ -168,6 +234,8 @@ void M_Infos(){
  * - comment résoudre (concis)
  */
 void M_Error(int errID=0){
+  LOC = "error";
+  select = false;
   MF_leds(LED_R);
   MF_reset();
   MF_title("ERREUR");
@@ -185,11 +253,9 @@ void setup() {
   LCD.BacklightConf(LOAD_TO_EEPROM,map(luminosite,0,100,0,127)); // Luminosité (0-127) sauvegardée au reboot
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
-  /*LCD.DispStringAt("Sparking...", 0, 0);
-  LCD.DispStringAt("Sparking...", 0, 10);
-  LCD.DispStringAt("Sparking...", centerX("Sparking...",6), 0);*/
 
-  M_Menu();
+  M_Duration(1,8);
+  M_Duration(6,8);
 }
 
 void loop() {
