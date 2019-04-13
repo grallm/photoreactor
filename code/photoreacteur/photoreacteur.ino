@@ -2,11 +2,15 @@
 const String version = "0.1";
 const String version_hardware = "1.0";
 /*
+ * ERR - pas possible cliquer sur lancer première rotation
+ * 
  * - Menu(s) de lancement du fonctionnement
  * - Menu d'erreur
  * - Gestion des LEDs encodeur
  * - Gestion de la LED
  * - Gestion du CLICK -> fonction globale qui dirige (permet de généraliser la lecture)
+ * 
+ * - Décompte en secondes, affichage (prendre valeur confi durée)
  */
 
 #include <Wire.h>
@@ -29,6 +33,10 @@ String LOC = "home";
 bool select = true; // Curseur activé
 int CURSOR = 0; // Valeur sélecteur (0 = neutre)
 int maxSelect = 3; // Valeur max de sélection (nombre de sélections possibles)
+
+bool select_click = false; // Curseur click activé
+int CURSOR_CLICK = 1; // Sélection avec le click
+int maxSelect_click = 8; // Valeur max de sélection (nombre de sélections possibles)
 
 // Variables interrupteur
 bool pushedPrev = true;
@@ -76,6 +84,7 @@ bool refreshScreen = false; // Rafraichissement de l'écran
 // Réinitialiser la position et nettoyer écran
 void MF_reset(){
   LCD.CleanAll(WHITE);
+  LCD.CursorConf(OFF, 0);
   MF_pos[0]=0;
   MF_pos[1]=0;
   refreshScreen = false;
@@ -117,9 +126,27 @@ void MF_text(String text, String place = "HL"){
   MF_pos[0]=0;
   MF_pos[1]+=8+MF_spacing;
 }
+// Ecrire du texte plus gros
+void MF_text_big(String text, String place = "HL"){
+  LCD.FontModeConf(Font_8x16_1, FM_ANL_AAA, BLACK_NO_BAC);
 
-// Boutton avec cadre, noir si sélectionné, avec une action (redirection, éteindre)
-void MF_button(String text, String action, bool select = false, bool center=true){
+  int posX = 0;
+  int posY = MF_pos[1]-2;
+  if(place=="BR"){ // Placer le texte
+    posX = FF_placeX(text,8,"R");
+    posY = FF_placeY(text,16,"B");
+  }else if(place=="C"){
+    posX = FF_placeX(text,8,"C");
+  }
+  
+  LCD.DispStringAt(text.c_str(), posX, posY);
+  
+  MF_pos[0]=0;
+  MF_pos[1]+=14;
+}
+
+// Boutton avec cadre, noir si sélectionné
+void MF_button(String text, bool select = false, bool center=true){
   /*
    * TODO
    * - actions
@@ -158,34 +185,54 @@ void M_Menu(int selected = 0){
   MF_leds(LED_G);
   MF_reset();
   MF_title("MENU");
-  MF_button("Lancer Experience", "", (selected==1)? true:false);
-  MF_button("Aide", "", (selected==2)? true:false);
-  MF_button("Infos", "", (selected==3)? true:false);
+  MF_button("Lancer Experience", (selected==1)? true:false);
+  MF_button("Aide", (selected==2)? true:false);
+  MF_button("Infos", (selected==3)? true:false);
   MF_text("v"+version, "BR");
 }
 
 // Sélection durée
 /*
  * TODO
- * - curseur
  * - sélectionner valeur en tournant
  * - passe de 9 à 10
+ * - Limiter minutes et secondes
+ * - Sauvegarder pour durée
  * - changer de chiffre
+ * - Pouvoir confirmer et annuler
  */
-void M_Duration(int selected=1){
+int M_Duration_val[7] = {0,0,0,0,0,0};
+void M_Duration(int selected=1, int value=1){
   LOC = "duration";
   select = true;
-  maxSelect = 7;
+  maxSelect = 10;
+  
   MF_leds(LED_G);
   MF_reset();
   MF_title("DUREE EXPERIENCE");
   MF_text("HH:MM:SS", "C");
-  MF_text_big("00:00:00", "C");
-  if(CURSOR < 7){
-	LCD.CursorGotoXY(128/2-8*8/2-1 + 8*(( (CURSOR == 0) ? 1 : CURSOR )-1), MF_pos[1]-16-MF_spacing, 8, 16);
-	LCD.CursorConf(ON, 10);
+  if(selected < 7 && selected > 0){
+    // Placer le curseur sur le chiffre à modifier
+    int charCursor = 0; // Bien placer cursuer
+    if(selected == 2){
+      charCursor = 1;
+    }else if(selected == 3 || selected == 4){
+      charCursor = selected;
+    }else if(selected == 5 || selected == 6){
+      charCursor = selected+1;
+    }
+    LCD.CursorGotoXY(128/2-8*8/2-1 + 8*charCursor, MF_pos[1]-2, 8, 16);
+    LCD.CursorConf(ON, 10);
+
+    // Affecteur/Afficher la valeur choisie
+    M_Duration_val[selected-1] = value-1;
+  }else
+  {
+    LCD.CursorConf(OFF, 10);
   }
-  MF_button("Annuler", (selected==7)? true:false);
+  MF_text_big(String(M_Duration_val[0])+String(M_Duration_val[1]) +":"+ String(M_Duration_val[2])+String(M_Duration_val[3]) +":"+ String(M_Duration_val[4])+String(M_Duration_val[5]), "C");
+  MF_button("Confirmer", (selected==7)? true:false);
+  MF_button("Annuler", (selected==8)? true:false);
 }
 
 // Informations sur le photoréacteur
@@ -223,9 +270,6 @@ void M_Error(int errID=0){
 
 // -- Fonctions et variables encodeur --
 /* TODO
- * - faciliter select
- * - actions slect
- * - actions click
  */
 
 // Variables rotation encodeur
@@ -243,12 +287,19 @@ void clickGestionary(){
   if(LOC == "home"){
     switch (CURSOR)
     {
+      case 1:
+        M_Duration();
+        break;
       case 3:
         M_Infos();
         break;
     }
   }else if(LOC == "infos"){
     M_Menu();
+  }else if(LOC == "duration"){
+    CURSOR_CLICK = (CURSOR_CLICK == maxSelect_click)? 1 : CURSOR_CLICK+1;
+    CURSOR = M_Duration_val[CURSOR_CLICK-1]+1;
+    M_Duration(CURSOR_CLICK, CURSOR);
   }
 }
 
@@ -331,7 +382,7 @@ void loop() {
     if(LOC == "home"){
       M_Menu(CURSOR);
     }else if(LOC == "duration"){
-		//M_Duration(CURSOR);
-	}
+      M_Duration(CURSOR_CLICK, CURSOR);
+    }
   }
 }

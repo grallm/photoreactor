@@ -105,7 +105,7 @@ void MF_text(String text, String place = "HL"){
   LCD.DispStringAt(text.c_str(), posX, posY);
   
   MF_pos[0]=0;
-  MF_pos[1]+=8+MF_spacing;
+  MF_pos[1]+=8+MF_spacing-2;
 }
 // Ecrire du texte plus gros
 void MF_text_big(String text, String place = "HL"){
@@ -123,10 +123,10 @@ void MF_text_big(String text, String place = "HL"){
   LCD.DispStringAt(text.c_str(), posX, posY);
   
   MF_pos[0]=0;
-  MF_pos[1]+=16+MF_spacing;
+  MF_pos[1]+=16;
 }
 
-// Boutton avec cadre, noir si sélectionné, avec une action (redirection, éteindre)
+// Boutton avec cadre, noir si sélectionné
 void MF_button(String text, bool select = false, bool center=true){
   int posX=0;
   if(center){ // Centrer le texte
@@ -208,7 +208,8 @@ void M_Duration(int selected=1, int value=1){
     LCD.CursorConf(OFF, 10);
   }
   MF_text_big(String(M_Duration_val[0])+String(M_Duration_val[1]) +":"+ String(M_Duration_val[2])+String(M_Duration_val[3]) +":"+ String(M_Duration_val[4])+String(M_Duration_val[5]), "C");
-  MF_button("Annuler", (selected==7)? true:false);
+  MF_button("Confirmer", (selected==7)? true:false);
+  MF_button("Annuler", (selected==8)? true:false);
 }
 
 // Informations sur le photoréacteur
