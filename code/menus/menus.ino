@@ -20,6 +20,9 @@ const int luminosite = 100, // en %
     LED_R = 6, // Pin LED encodeur rouge
     LED_G = 5; // Pin LED encodeur verte
 
+// Localisation
+string LOC = "home";
+
 // -- Fonctions de formattage --
 /*
  * TODO
@@ -54,6 +57,8 @@ int MF_spacing_title = 6; // Nombre de pixels entre titre et texte
 int MF_spacing = 2; // Nombre de pixels entre chaque ligne
 int MF_spacing_button = 2; // Nombre de pixels après bouton
 int MF_pos[3] = {0,0}; // Position d'écriture dans les menus
+
+bool refreshScreen = false; // Rafraichissement de l'écran
 
 // Réinitialiser la position et nettoyer écran
 void MF_reset(){
@@ -188,5 +193,7 @@ void setup() {
 }
 
 void loop() {
-  
+  if(refreshScreen){
+    
+  }
 }
