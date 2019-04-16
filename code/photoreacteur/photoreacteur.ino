@@ -44,6 +44,13 @@ int maxSelect_click = 8; // Valeur max de sélection (nombre de sélections poss
 bool pushedPrev = true;
 bool pushed = false; // Appuie 1 fois
 
+// Variables de fonctionnement
+bool reacting = false;
+unsigned long time_left = 0; // Temps restant en secondes d'expérience
+bool start_ventilo = false; // Savoir si à démarrer
+bool VENTILO_STATE = false; // Etat actuel
+bool start_led = false; // Savoir si à démarrer
+bool LED_STATE = false; // Etat actuel (savoir si à démarrer)
 
 
 // -- Fonctions de formattage --
@@ -149,10 +156,6 @@ void MF_text_big(String text, String place = "HL"){
 
 // Boutton avec cadre, noir si sélectionné
 void MF_button(String text, bool select = false, bool center=true){
-  /*
-   * TODO
-   * - actions
-   */
   int posX=0;
   if(center){ // Centrer le texte
     posX = FF_placeX(text,6);
@@ -246,6 +249,25 @@ void M_Duration(int selected=1, int value=1){
   selectedBefore = value;
 }
 
+// En cours de réaction
+/*
+ * TODO
+ * - Temps restant
+ * - Température actuelle
+ * - Pourcentage lumineux
+ * - Pause
+ * - Arrêter
+ * - 
+ */
+void M_Started(){
+  LOC = "started";
+  select = true;
+  maxSelect = 3;
+  MF_leds(LED_R);
+  MF_reset();
+  MF_title("REACTION EN COURS...");
+}
+
 // Informations sur le photoréacteur
 void M_Infos(){
   LOC = "infos";
@@ -312,6 +334,8 @@ void clickGestionary(){
     CURSOR_CLICK = (CURSOR_CLICK == maxSelect_click)? 1 : CURSOR_CLICK+1;
     // Affecte la valeur au curseur
     if(CURSOR_CLICK > 0 && CURSOR_CLICK < 7){
+      CURSOR = M_Duration_val[CURSOR_CLICK-1]+1;
+    }
 
     M_Duration(CURSOR_CLICK, CURSOR);
   }
