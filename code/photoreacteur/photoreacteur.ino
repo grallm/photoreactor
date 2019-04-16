@@ -2,8 +2,7 @@
 const String version = "0.1";
 const String version_hardware = "1.0";
 /*
- * ERR - pas possible cliquer sur lancer première rotation
- * 
+ * TODO
  * - Menu(s) de lancement du fonctionnement
  * - Menu d'erreur
  * - Gestion des LEDs encodeur
@@ -11,6 +10,9 @@ const String version_hardware = "1.0";
  * - Gestion du CLICK -> fonction globale qui dirige (permet de généraliser la lecture)
  * 
  * - Décompte en secondes, affichage (prendre valeur confi durée)
+ *
+ * AMÉLIORATIONS
+ * - Passer de 60s à 1mn et 60mn à 1h
  */
 
 #include <Wire.h>
@@ -194,45 +196,54 @@ void M_Menu(int selected = 0){
 // Sélection durée
 /*
  * TODO
- * - sélectionner valeur en tournant
- * - passe de 9 à 10
+ * - Pouvoir confirmer et annuler
  * - Limiter minutes et secondes
  * - Sauvegarder pour durée
- * - changer de chiffre
- * - Pouvoir confirmer et annuler
  */
 int M_Duration_val[7] = {0,0,0,0,0,0};
 void M_Duration(int selected=1, int value=1){
   LOC = "duration";
   select = true;
   maxSelect = 10;
-  
-  MF_leds(LED_G);
-  MF_reset();
-  MF_title("DUREE EXPERIENCE");
-  MF_text("HH:MM:SS", "C");
-  if(selected < 7 && selected > 0){
-    // Placer le curseur sur le chiffre à modifier
-    int charCursor = 0; // Bien placer cursuer
-    if(selected == 2){
-      charCursor = 1;
-    }else if(selected == 3 || selected == 4){
-      charCursor = selected;
-    }else if(selected == 5 || selected == 6){
-      charCursor = selected+1;
+  static int selectedBefore; // Set selectedBefore if not set
+  if(selectedBefore != value && (selected==7 || selected==8)){ // Si valeur différente précédente et sur Confirmer ou Annuler = menu
+    if(selected==7){
+      /* SUITE */
+    }else if(selected==8){
+      M_Menu();
     }
-    LCD.CursorGotoXY(128/2-8*8/2-1 + 8*charCursor, MF_pos[1]-2, 8, 16);
-    LCD.CursorConf(ON, 10);
+  }else{
+    MF_leds(LED_G);
+    MF_reset();
+    MF_title("DUREE EXPERIENCE");
+    MF_text("HH:MM:SS", "C");
+    if(selected < 7 && selected > 0){
+      // Placer le curseur sur le chiffre à modifier
+      int charCursor = 0; // Bien placer curseur
+      if(selected == 3 || selected == 4){
+        charCursor = 7-selected;
+      }else if(selected == 1 || selected == 2){
+        charCursor = 8-selected;
+      }else if(selected == 5 || selected == 6){
+        charCursor = 6-selected;
+      }
+      LCD.CursorGotoXY(128/2-8*8/2-1 + 8*charCursor, MF_pos[1]-2, 8, 16);
+      LCD.CursorConf(ON, 10);
 
-    // Affecteur/Afficher la valeur choisie
-    M_Duration_val[selected-1] = value-1;
-  }else
-  {
-    LCD.CursorConf(OFF, 10);
+      // Affecteur/Afficher la valeur choisie
+      M_Duration_val[selected-1] = value-1;
+    }else
+    {
+      LCD.CursorConf(OFF, 10);
+    }
+    MF_text_big(String(M_Duration_val[5])+String(M_Duration_val[4]) +":"+ String(M_Duration_val[3])+String(M_Duration_val[2]) +":"+ String(M_Duration_val[1])+String(M_Duration_val[0]), "C");
+
+    MF_button("Confirmer", (selected==7)? true:false);
+    MF_button("Annuler", (selected==8)? true:false);
   }
-  MF_text_big(String(M_Duration_val[0])+String(M_Duration_val[1]) +":"+ String(M_Duration_val[2])+String(M_Duration_val[3]) +":"+ String(M_Duration_val[4])+String(M_Duration_val[5]), "C");
-  MF_button("Confirmer", (selected==7)? true:false);
-  MF_button("Annuler", (selected==8)? true:false);
+
+  // Sauvegarder valeur précédente de la rotation
+  selectedBefore = value;
 }
 
 // Informations sur le photoréacteur
@@ -297,8 +308,11 @@ void clickGestionary(){
   }else if(LOC == "infos"){
     M_Menu();
   }else if(LOC == "duration"){
+    // Place curseur sur bouton ou chiffre
     CURSOR_CLICK = (CURSOR_CLICK == maxSelect_click)? 1 : CURSOR_CLICK+1;
-    CURSOR = M_Duration_val[CURSOR_CLICK-1]+1;
+    // Affecte la valeur au curseur
+    if(CURSOR_CLICK > 0 && CURSOR_CLICK < 7){
+
     M_Duration(CURSOR_CLICK, CURSOR);
   }
 }
@@ -309,7 +323,7 @@ void rotationGestionary(char rotDir){
     refreshScreen = true;
     // Ajouter ou retirer 1 au curseur
     if(rotDir == 'H'){
-      CURSOR = (CURSOR == maxSelect) ? 1 : CURSOR+1;
+      CURSOR = (CURSOR >= maxSelect) ? 1 : CURSOR+1;
     }else if(rotDir == 'T'){
       CURSOR = (CURSOR == 1) ? maxSelect : CURSOR-1;
     }
