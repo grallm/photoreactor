@@ -3,8 +3,7 @@ const String version = "0.1";
 const String version_hardware = "1.0";
 /*
  * PRIORITY
- * - Pause non fonctionnelle
- * - Pause et annulation Menu Started
+ * - Annulation Menu Started
  * 
  * 
  * TODO
@@ -12,7 +11,6 @@ const String version_hardware = "1.0";
  * - Menu d'erreur
  * - Gestion des LEDs encodeur
  * - Clignotement LEDs
- * - Fin, menu de fin d'expérience
  * - Vérifier si menus ne coupent pas phrases (ex: Erreurs)
  * - Gestion température et Luminosité
  * - Gestion température et Luminosité moyennes
@@ -59,7 +57,7 @@ bool pushed = false; // Appuie 1 fois
 
 // Variables de fonctionnement
 int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
-unsigned long time_left = 100; // Temps restant en secondes d'expérience
+unsigned long time_left = 0; // Temps restant en secondes d'expérience
 short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
@@ -270,21 +268,36 @@ void M_Menu(int selected = 0){
   MF_text("v"+version, "BR");
 }
 
+// Fin d'expérience
+/* TODO
+ * - Afficher temp et lum moy
+ */
+void M_Finish(unsigned long time, bool aborted = false){
+  LOC = "finish";
+  select = false;
+  MF_leds(LED_G);
+  MF_reset();
+  MF_title("EXPERIENCE TERMINEE");
+  MF_text("Temps d'exposition", "C");
+  MF_text(time_sec_toStr(time), "C");
+  MF_text("Temp. moy.: ?? C"); // 
+  MF_text("Lumi. moy.: ??%");
+  if(aborted){
+    MF_text("ARRETE", "C");
+  }
+}
+
 // En cours de réaction
 /*
  * TODO
  * - Température actuelle
  * - Pourcentage lumineux
- * - Pause
- * - Arrêter
- * - Message "NE PAS OUVRIR !!!"
- * - Actualisation chaque seconde
  */
 void M_Started(int selected=0, bool pause = false, String temp = "??", String perc_lum = "??"){
   LOC = "started";
   select = true;
   maxSelect = 2;
-  MF_leds(LED_R);
+  MF_leds(LED_G, true);
   MF_reset();
   String pause_txt = (pause)? "PAUSE" : "REACTION EN COURS...";
   MF_title(pause_txt);
@@ -324,9 +337,7 @@ void M_Duration(int selected=1, int value=1){
       unsigned long temp_time = duration_val[5]; // Dépassement de capacité
       time_left += 10*(3600*temp_time);
       
-      if(time_left < 10){ // Durée minimum pour lancer
-        /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
-      }else{
+      if(time_left > 1){ // Durée minimum pour lancer
         CURSOR = 0; // Rien sélectionné
         // Démarrer réaction
         REACTING = 2;
@@ -361,7 +372,7 @@ void M_Duration(int selected=1, int value=1){
     {
       LCD.CursorConf(OFF, 10);
     }
-    MF_text_big(String(duration_val[5])+String(duration_val[4]) +":"+ String(duration_val[3])+String(duration_val[2]) +":"+ String(duration_val[1])+String(duration_val[0]), "C");
+    MF_text_big(time_sec_toStr(time_to_sec(duration_val)), "C");
 
     MF_button("Confirmer", (selected==7)? true:false);
     MF_button("Annuler", (selected==8)? true:false);
@@ -373,7 +384,7 @@ void M_Duration(int selected=1, int value=1){
 
 // Informations sur le photoréacteur
 void M_Infos(){
-  LOC = "infos";
+  LOC = "infos"; 
   select = false;
   MF_leds(LED_G);
   MF_reset();
@@ -396,7 +407,7 @@ void M_Error(int errID=0){
   
   LOC = "error";
   select = false;
-  MF_leds(LED_R);
+  MF_leds(LED_R, true);
   MF_reset();
   MF_title("ERREUR n" + String(errID));
   MF_text("PROBLEME:");
@@ -450,8 +461,7 @@ void clickGestionary(){
   }else if(LOC == "started"){
     switch (CURSOR)
     {
-    case 1:
-      // Pause
+    case 1: // Pause/Reprendre
       if(REACTING == 1){ // En marche -> pause
         REACTING = 3; // Arrêter
         M_Started(CURSOR, true);
@@ -465,11 +475,14 @@ void clickGestionary(){
       }
       break;
     
-    case 2:
-      /* ARRETER */
+    case 2: // Arrêté
+      M_Finish(time_to_sec(duration_val)-time_left,true);
       break;
     }
   }else if(LOC == "error"){
+    CURSOR = 0;
+    M_Menu();
+  }else if(LOC == "finish"){
     CURSOR = 0;
     M_Menu();
   }
@@ -548,6 +561,65 @@ void loop() {
   if(clicked){
     clickGestionary();
   }
+
+
+  // Gestion temps, décompte
+  if(REACTING==1 && time_left > 0 && (millis()-last_sec_millis)>=1000){ // En cours, baisser compteur
+    last_sec_millis = millis();
+    time_left--;
+    refreshScreen = true;
+  
+  }else if(REACTING==1 && time_left <= 0 && (millis()-last_sec_millis)>=1000){ // Terminé, tout arrêter (pas ventilo ?)
+    last_sec_millis = millis();
+    time_left = 0;
+    REACTING = 3; // Arrêter
+    
+    M_Finish(time_to_sec(duration_val)); // Menu de fin d'expérience
+
+    // Reset temps configuré
+    for(short i=0; i<6; i++){
+      duration_val[i] = 0;
+    }
+  }
+
+  // Gestion réaction (et tout)
+  else if(REACTING==2){ // Tout allumer
+    LED_STATE = 2; // Allumer LED
+    VENTILO_STATE = 2; // Allumer ventilo
+
+    REACTING = 1; // En réaction
+  }else if(REACTING >= 3){ // Tout éteindre, arrêter réaction
+    LED_STATE = 3; // Eteindre LED
+    VENTILO_STATE = 3; // Eteindre ventilo
+
+    REACTING = 0; // Hors réaction
+  }
+
+  // Gestion HP LED
+  if(LED_STATE==2 && ((DOUBLE_LED_SECU && REACTING==1) || !DOUBLE_LED_SECU)){ // Allumer LED si éteinte
+    /* ALLUMER LED */Serial.println("Allumer LED");
+    LED_STATE = 1; // Allumée
+  }else if(LED_STATE==2 && (DOUBLE_LED_SECU && REACTING!=1)){ // Vouloir allumer LED hors réaction
+    /* ETEINDRE LED */Serial.println("Eteindre LED");
+    /* ETEINDRE VENTILO */Serial.println("Eteindre ventilo");
+    REACTING = 3; // Tout éteindre
+
+    M_Error(1); // Erreur de sécurite: Double sécu activée et pas en réaction
+
+  }else if(LED_STATE>=3){ // Eteindre LED
+    /* ALLUMER LED */Serial.println("Allumer LED");
+    LED_STATE = 0;
+  }
+
+  // Gestion ventilateur
+  if(VENTILO_STATE==2){ // Allumer ventilo si éteint
+    /* ALLUMER VENTILO */Serial.println("Allumer ventilo");
+    VENTILO_STATE = 1; // Allumé
+  }else if(VENTILO_STATE==3){ // Eteindre VENTILO
+    /* ALLUMER LED */Serial.println("Allumer LED");
+    VENTILO_STATE = 0;
+  }
+  
 
   // Rafraîchissement de l'écran
   if(refreshScreen){

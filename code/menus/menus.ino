@@ -26,7 +26,7 @@ int maxSelect = 3;
 
 // Variables de fonctionnement
 int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
-unsigned long time_left = 100; // Temps restant en secondes d'expérience
+unsigned long time_left = 0; // Temps restant en secondes d'expérience
 short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
@@ -241,14 +241,14 @@ void M_Menu(int selected = 0){
 /* TODO
  * - Afficher temp et lum moy
  */
-void M_Finish(bool aborted = false){
+void M_Finish(unsigned long time, bool aborted = false){
   LOC = "finish";
   select = false;
   MF_leds(LED_G);
   MF_reset();
   MF_title("EXPERIENCE TERMINEE");
   MF_text("Temps d'exposition", "C");
-  MF_text(time_sec_toStr(time_to_sec(duration_val)), "C");
+  MF_text(time_sec_toStr(time), "C");
   MF_text("Temp. moy.: ?? C"); // 
   MF_text("Lumi. moy.: ??%");
   if(aborted){
@@ -401,7 +401,7 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
 
-  M_Finish(true);
+  M_Finish(0, true);
 }
 
 void loop() {
