@@ -2,11 +2,8 @@
 const String version = "0.1";
 const String version_hardware = "1.0";
 /*
- * - Menu(s) de lancement du fonctionnement
- * - Menu d'erreur
  * - Gestion des LEDs encodeur
- * - Gestion de la LED
- * - Gestion ventilo
+ * - Menu de fin
  */
 
 #include <Wire.h>
@@ -240,21 +237,37 @@ void M_Menu(int selected = 0){
   MF_text("v"+version, "BR");
 }
 
+// Fin d'expérience
+/* TODO
+ * - Afficher temp et lum moy
+ */
+void M_Finish(bool aborted = false){
+  LOC = "finish";
+  select = false;
+  MF_leds(LED_G);
+  MF_reset();
+  MF_title("EXPERIENCE TERMINEE");
+  MF_text("Temps d'exposition", "C");
+  MF_text(time_sec_toStr(time_to_sec(duration_val)), "C");
+  MF_text("Temp. moy.: ?? C"); // 
+  MF_text("Lumi. moy.: ??%");
+  if(aborted){
+    MF_text("ARRETE", "C");
+  }
+}
+
 // En cours de réaction
 /*
  * TODO
  * - Température actuelle
  * - Pourcentage lumineux
- * - Pause
  * - Arrêter
- * - Message "NE PAS OUVRIR !!!"
- * - Actualisation chaque seconde
  */
 void M_Started(int selected=0, bool pause = false, String temp = "??", String perc_lum = "??"){
   LOC = "started";
   select = true;
   maxSelect = 2;
-  MF_leds(LED_R);
+  MF_leds(LED_G, true);
   MF_reset();
   String pause_txt = (pause)? "PAUSE" : "REACTION EN COURS...";
   MF_title(pause_txt);
@@ -298,10 +311,8 @@ void M_Duration(int selected=1, int value=1){
         /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
       }else{
         CURSOR = 0; // Rien sélectionné
-        // Tout démarrer: réaction, ventilo, LED
-        reacting = true;
-        start_ventilo = true;
-        start_led = true;
+        // Démarrer réaction
+        REACTING = 2;
 
         M_Started();
       }
@@ -333,7 +344,7 @@ void M_Duration(int selected=1, int value=1){
     {
       LCD.CursorConf(OFF, 10);
     }
-    MF_text_big(String(duration_val[5])+String(duration_val[4]) +":"+ String(duration_val[3])+String(duration_val[2]) +":"+ String(duration_val[1])+String(duration_val[0]), "C");
+    MF_text_big(time_sec_toStr(time_to_sec(duration_val)), "C");
 
     MF_button("Confirmer", (selected==7)? true:false);
     MF_button("Annuler", (selected==8)? true:false);
@@ -345,7 +356,7 @@ void M_Duration(int selected=1, int value=1){
 
 // Informations sur le photoréacteur
 void M_Infos(){
-  LOC = "infos";
+  LOC = "infos"; 
   select = false;
   MF_leds(LED_G);
   MF_reset();
@@ -368,7 +379,7 @@ void M_Error(int errID=0){
   
   LOC = "error";
   select = false;
-  MF_leds(LED_R);
+  MF_leds(LED_R, true);
   MF_reset();
   MF_title("ERREUR n" + String(errID));
   MF_text("PROBLEME:");
@@ -390,7 +401,7 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
 
-  M_Error();
+  M_Finish(true);
 }
 
 void loop() {

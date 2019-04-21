@@ -11,8 +11,11 @@ const String version_hardware = "1.0";
  * - Verification et allumage LED + ventilo
  * - Menu d'erreur
  * - Gestion des LEDs encodeur
+ * - Clignotement LEDs
  * - Fin, menu de fin d'expérience
  * - Vérifier si menus ne coupent pas phrases (ex: Erreurs)
+ * - Gestion température et Luminosité
+ * - Gestion température et Luminosité moyennes
  * 
  *
  * AMÉLIORATIONS
@@ -20,6 +23,7 @@ const String version_hardware = "1.0";
  * - Passer de 60s à 1mn et 60mn à 1h
  * - Bonne gestion ventilateur selon température
  * - Meilleure actualisation écran -> refresh que les parties nécessaires
+ * - Message "NE PAS OUVRIR !!!" lorsqu'en réaction
  */
 
 #include <Wire.h>
