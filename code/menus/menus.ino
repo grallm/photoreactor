@@ -30,7 +30,7 @@ int maxSelect = 3;
 // Variables de fonctionnement
 int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
 bool reacting = false;
-unsigned long time_left = 0; // Temps restant en secondes d'expérience
+unsigned long time_left = 100; // Temps restant en secondes d'expérience
 bool start_ventilo = false; // Savoir si à démarrer
 bool VENTILO_STATE = false; // Etat actuel
 bool start_led = false; // Savoir si à démarrer
@@ -266,7 +266,7 @@ void M_Started(int selected=0, bool pause = false, String temp = "??", String pe
   MF_text("Temp: "+ temp +" C", "L", false);
   MF_text("Lum: "+ perc_lum +"%", "R");
   pause_txt = (pause)? "Reprendre" : "Pause";
-  MF_button("Pause", (selected==1)? true:false, "BL", false);
+  MF_button(pause_txt, (selected==1)? true:false, "BL", false);
   MF_button("Arreter", (selected==2)? true:false, "BR");
 }
 
@@ -299,7 +299,12 @@ void M_Duration(int selected=1, int value=1){
       if(time_left < 10){ // Durée minimum pour lancer
         /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
       }else{
-        CURSOR = 0; // Rien sélecté
+        CURSOR = 0; // Rien sélectionné
+        // Tout démarrer: réaction, ventilo, LED
+        reacting = true;
+        start_ventilo = true;
+        start_led = true;
+
         M_Started();
       }
     }else if(selected==8){
@@ -355,19 +360,23 @@ void M_Infos(){
 }
 
 // Erreurs
-/*
- * TODO
- * - lister différentes erreurs possibles
- * - explication pour chacune (concise)
- * - retour menu
- * - comment résoudre (concis)
- */
 void M_Error(int errID=0){
+  String erreurs[3] = {"Erreur inconnue", "Sécurité LED"};
+  String solutions[3] = {"", "Relancer expérience"};
+  String solution = solutions[errID];
+  if(solution == ""){ // Erreur défaut
+    solution = "Eteindre/Rallumer";
+  }
+  
   LOC = "error";
   select = false;
   MF_leds(LED_R);
   MF_reset();
-  MF_title("ERREUR");
+  MF_title("ERREUR n" + String(errID));
+  MF_text("PROBLEME:");
+  MF_text(erreurs[errID]);
+  MF_text("SOLUTION:");
+  MF_text(solution);
 }
 // ----------------
 
@@ -383,11 +392,7 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
 
-  M_Started();
-
-  Serial.println(String(duration_val[5])+String(duration_val[4]) +":"+ String(duration_val[3])+String(duration_val[2]) +":"+ String(duration_val[1])+String(duration_val[0]));
-  Serial.println(time_to_sec(duration_val));
-  Serial.println(time_sec_toStr(time_to_sec(duration_val)));
+  M_Error();
 }
 
 void loop() {

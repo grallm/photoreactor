@@ -1,5 +1,5 @@
 // TESTS VENTILO
-void setup() {
+/* void setup() {
   Serial.begin(9600);
   Serial.println("START");
   pinMode(11,OUTPUT);
@@ -8,7 +8,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   analogWrite(11, 255);
-}
+} */
 
 // TESTS THERMISTOR
 /*
@@ -47,3 +47,66 @@ void loop() {
   
   delay(1000);
 }*/
+
+// TESTS FONCTIONS TRANSFORMATION SECONDES
+// -- Fonction générales --
+// Transformer temps secondes en HH:MM:SS
+String time_sec_toStr(unsigned long timeSec){
+  unsigned long time[4];
+  String timeStr[4];
+
+  // Heures
+  time[0] = timeSec/3600;
+  timeSec -= 3600*time[0];
+  timeStr[0] = String(time[0]);
+  timeStr[0] = (time[0]<10)? "0"+timeStr[0] : timeStr[0]; // Rajouter 0 si <10
+
+  // Minutes
+  time[1] = timeSec/60;
+  timeSec -= 60*time[1];
+  timeStr[1] = String(time[1]);
+  timeStr[1] = (time[1]<10)? "0"+timeStr[1] : timeStr[1];
+
+  // Secondes
+  time[2] = timeSec;
+  timeStr[2] = String(time[2]);
+  timeStr[2] = (time[2]<10)? "0"+timeStr[2] : timeStr[2];
+
+  // Retourner 00:00:00
+  return timeStr[0] +":"+ timeStr[1] +":"+ timeStr[2];
+}
+
+// Mettre le temps paramétré en secondes
+unsigned long time_to_sec(int* time){
+  unsigned long timeSec = 0;
+
+  // Secondes
+  timeSec += time[0];
+  timeSec += 10*time[1];
+
+  // Minutes
+  timeSec += 60*time[2];
+  timeSec += 10*60*time[3];
+
+  // Heures
+  timeSec += 3600*time[4];
+  unsigned long temp_time = time[5]; // Dépassement de capacité
+  timeSec += 10*(3600*temp_time);
+
+  return timeSec;
+}
+// ----------------
+
+void setup(){
+  Serial.begin(9600);
+  Serial.println("START");
+
+  int test_sec_transf[7] = {0,0,0,1,0,0};
+  Serial.println(String(test_sec_transf[5])+String(test_sec_transf[4]) +":"+ String(test_sec_transf[3])+String(test_sec_transf[2]) +":"+ String(test_sec_transf[1])+String(test_sec_transf[0]));
+  Serial.println(time_to_sec(test_sec_transf));
+  Serial.println(String(time_to_sec(test_sec_transf)-600));
+}
+
+void loop(){
+
+}

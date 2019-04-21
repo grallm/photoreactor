@@ -3,16 +3,19 @@ const String version = "0.1";
 const String version_hardware = "1.0";
 /*
  * TODO
- * - Menu(s) de lancement du fonctionnement
  * - Menu d'erreur
  * - Gestion des LEDs encodeur
- * - Gestion de la LED
- * - Gestion du CLICK -> fonction globale qui dirige (permet de généraliser la lecture)
  * 
- * - Décompte en secondes, affichage (prendre valeur confi durée)
+ * - Gestion de la LED
+ * - Gestion variables fonctionnement (LED, ventilo, reload menu, décompte)
+ * - Pause et annulation Menu Started
+ * - Fin, menu de fin
+ * - Vérifier si menus ne coupent pas phrases (ex: Erreurs)
  *
  * AMÉLIORATIONS
  * - Passer de 60s à 1mn et 60mn à 1h
+ * - Bonne gestion ventilateur selon température
+ * - Meilleure actualisation écran -> refresh que les parties nécessaires
  */
 
 #include <Wire.h>
@@ -21,12 +24,14 @@ const String version_hardware = "1.0";
 I2C_LCD LCD;
 uint8_t I2C_LCD_ADDRESS = 0x51; // Adresse écran
 
+/* CONFIGURATION */
 const int luminosite = 100, // en %
     LED_R = 6, // Pin LED encodeur rouge
     LED_G = 5, // Pin LED encodeur verte
     ENC_ROT_1 = 2, // Encodeur rotatif
     ENC_ROT_2 = 3, // Encodeur rotatif
-    ENC_INTERRUPTOR = 4; // Interrupteur
+    ENC_INTERRUPTOR = 4, // Interrupteur
+    DOUBLE_LED_SECU = true; // Double sécurité LED (allumée que lorsqu'en réaction)
 
 // Localisation
 String LOC = "home";
@@ -46,12 +51,10 @@ bool pushed = false; // Appuie 1 fois
 
 // Variables de fonctionnement
 int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
-bool reacting = false;
-unsigned long time_left = 0; // Temps restant en secondes d'expérience
-bool start_ventilo = false; // Savoir si à démarrer
-bool VENTILO_STATE = false; // Etat actuel
-bool start_led = false; // Savoir si à démarrer
-bool LED_STATE = false; // Etat actuel (savoir si à démarrer)
+unsigned long time_left = 100; // Temps restant en secondes d'expérience
+short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
+short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
+short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 
 
 
@@ -283,7 +286,7 @@ void M_Started(int selected=0, bool pause = false, String temp = "??", String pe
   MF_text("Temp: "+ temp +" C", "L", false);
   MF_text("Lum: "+ perc_lum +"%", "R");
   pause_txt = (pause)? "Reprendre" : "Pause";
-  MF_button("Pause", (selected==1)? true:false, "BL", false);
+  MF_button(pause_txt, (selected==1)? true:false, "BL", false);
   MF_button("Arreter", (selected==2)? true:false, "BR");
 }
 
@@ -316,7 +319,10 @@ void M_Duration(int selected=1, int value=1){
       if(time_left < 10){ // Durée minimum pour lancer
         /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
       }else{
-        CURSOR = 0; // Rien sélecté
+        CURSOR = 0; // Rien sélectionné
+        // Démarrer réaction
+        REACTING = 2;
+
         M_Started();
       }
     }else if(selected==8){
@@ -372,19 +378,23 @@ void M_Infos(){
 }
 
 // Erreurs
-/*
- * TODO
- * - lister différentes erreurs possibles
- * - explication pour chacune (concise)
- * - retour menu
- * - comment résoudre (concis)
- */
 void M_Error(int errID=0){
+  String erreurs[3] = {"Erreur inconnue", "Sécurité LED"};
+  String solutions[3] = {"", "Relancer expérience"};
+  String solution = solutions[errID];
+  if(solution == ""){ // Erreur défaut
+    solution = "Eteindre/Rallumer";
+  }
+  
   LOC = "error";
   select = false;
   MF_leds(LED_R);
   MF_reset();
-  MF_title("ERREUR");
+  MF_title("ERREUR n" + String(errID));
+  MF_text("PROBLEME:");
+  MF_text(erreurs[errID]);
+  MF_text("SOLUTION:");
+  MF_text(solution);
 }
 // ----------------
 
@@ -433,13 +443,23 @@ void clickGestionary(){
     switch (CURSOR)
     {
     case 1:
-      /* PAUSE */
+      // Pause
+      if(REACTING == 1){ // En marche -> pause
+        REACTING = 3; // Arrêter
+        M_Started(CURSOR);
+      }else{  // En pause -> En marche
+        REACTING = 2; // Démarrer
+        M_Started(CURSOR, true);
+      }
       break;
     
     case 2:
-      /* ANNULER */
+      /* ARRETER */
       break;
     }
+  }else if(LOC == "error"){
+    CURSOR = 0;
+    M_Menu();
   }
 }
 
@@ -504,7 +524,6 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
   M_Menu();
-  // M_Started();
   // ------------------
 }
 
@@ -524,6 +543,8 @@ void loop() {
       M_Menu(CURSOR);
     }else if(LOC == "duration"){
       M_Duration(CURSOR_CLICK, CURSOR);
+    }else if(LOC == "started"){
+      M_Started(CURSOR, (REACTING==1)?true:false);
     }
   }
 }
