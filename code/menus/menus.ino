@@ -29,13 +29,11 @@ int maxSelect = 3;
 
 // Variables de fonctionnement
 int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
-bool reacting = false;
 unsigned long time_left = 100; // Temps restant en secondes d'expérience
-bool start_ventilo = false; // Savoir si à démarrer
-bool VENTILO_STATE = false; // Etat actuel
-bool start_led = false; // Savoir si à démarrer
-bool LED_STATE = false; // Etat actuel (savoir si à démarrer)
-
+short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
+short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
+short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
+unsigned long last_sec_millis = millis(); // Sauvegarde dernière valeur lors décompte 1 seconde
 
 
 // -- Fonction générales --

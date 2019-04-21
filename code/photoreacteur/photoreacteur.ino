@@ -2,17 +2,21 @@
 const String version = "0.1";
 const String version_hardware = "1.0";
 /*
+ * PRIORITY
+ * - Pause non fonctionnelle
+ * - Pause et annulation Menu Started
+ * 
+ * 
  * TODO
+ * - Verification et allumage LED + ventilo
  * - Menu d'erreur
  * - Gestion des LEDs encodeur
- * 
- * - Gestion de la LED
- * - Gestion variables fonctionnement (LED, ventilo, reload menu, décompte)
- * - Pause et annulation Menu Started
- * - Fin, menu de fin
+ * - Fin, menu de fin d'expérience
  * - Vérifier si menus ne coupent pas phrases (ex: Erreurs)
+ * 
  *
  * AMÉLIORATIONS
+ * - Décompte d'une seconde -> delay petit et faire jusqu'à 1s ?
  * - Passer de 60s à 1mn et 60mn à 1h
  * - Bonne gestion ventilateur selon température
  * - Meilleure actualisation écran -> refresh que les parties nécessaires
@@ -55,7 +59,7 @@ unsigned long time_left = 100; // Temps restant en secondes d'expérience
 short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
-
+unsigned long last_sec_millis = millis(); // Sauvegarde dernière valeur lors décompte 1 seconde
 
 
 // -- Fonction générales --
@@ -446,10 +450,14 @@ void clickGestionary(){
       // Pause
       if(REACTING == 1){ // En marche -> pause
         REACTING = 3; // Arrêter
-        M_Started(CURSOR);
+        M_Started(CURSOR, true);
+
+        last_sec_millis = millis()-last_sec_millis; // Sauvegarde la différence pour remettre même lors repris = précision
       }else{  // En pause -> En marche
         REACTING = 2; // Démarrer
-        M_Started(CURSOR, true);
+        M_Started(CURSOR);
+
+        last_sec_millis = millis()-last_sec_millis; // Remettre à la même différence pour reprise précise
       }
       break;
     
@@ -544,7 +552,7 @@ void loop() {
     }else if(LOC == "duration"){
       M_Duration(CURSOR_CLICK, CURSOR);
     }else if(LOC == "started"){
-      M_Started(CURSOR, (REACTING==1)?true:false);
+      M_Started(CURSOR, (REACTING==1)?false:true);
     }
   }
 }
