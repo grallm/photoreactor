@@ -370,8 +370,8 @@ void M_Infos(){
 
 // Erreurs
 void M_Error(int errID=0){
-  String erreurs[3] = {"Erreur inconnue", "Sécurité LED"};
-  String solutions[3] = {"", "Relancer expérience"};
+  String erreurs[4] = {"Erreur inconnue", "Sécurité LED", "LED ON pas M_Started"};
+  String solutions[4] = {"", "Relancer expérience", ""};
   String solution = solutions[errID];
   if(solution == ""){ // Erreur défaut
     solution = "Eteindre/Rallumer";
@@ -386,6 +386,7 @@ void M_Error(int errID=0){
   MF_text(erreurs[errID]);
   MF_text("SOLUTION:");
   MF_text(solution);
+  MF_text("IDEALEMENT SIGNALER", "C");
 }
 // ----------------
 
@@ -401,7 +402,7 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
 
-  M_Finish(0, true);
+  M_Error(2);
 }
 
 void loop() {

@@ -34,6 +34,8 @@ uint8_t I2C_LCD_ADDRESS = 0x51; // Adresse écran
 const int luminosite = 100, // en %
     LED_R = 6, // Pin LED encodeur rouge
     LED_G = 5, // Pin LED encodeur verte
+    LED_HP = 9, // Pin contrôle LED haute puissance
+    VENTILO = 11, // Pin contrôle ventilo
     ENC_ROT_1 = 2, // Encodeur rotatif
     ENC_ROT_2 = 3, // Encodeur rotatif
     ENC_INTERRUPTOR = 4, // Interrupteur
@@ -398,8 +400,8 @@ void M_Infos(){
 
 // Erreurs
 void M_Error(int errID=0){
-  String erreurs[3] = {"Erreur inconnue", "Sécurité LED"};
-  String solutions[3] = {"", "Relancer expérience"};
+  String erreurs[4] = {"Erreur inconnue", "Sécurité LED", "LED ON pas M_Started"};
+  String solutions[4] = {"", "Relancer expérience", ""};
   String solution = solutions[errID];
   if(solution == ""){ // Erreur défaut
     solution = "Eteindre/Rallumer";
@@ -414,6 +416,7 @@ void M_Error(int errID=0){
   MF_text(erreurs[errID]);
   MF_text("SOLUTION:");
   MF_text(solution);
+  MF_text("IDEALEMENT SIGNALER", "C");
 }
 // ----------------
 
@@ -476,6 +479,7 @@ void clickGestionary(){
       break;
     
     case 2: // Arrêté
+      REACTING = 3;
       M_Finish(time_to_sec(duration_val)-time_left,true);
       break;
     }
@@ -543,6 +547,13 @@ void setup() {
   attachInterrupt(1, updateEncoder, CHANGE);
   // ------------------
 
+  // - LEDS ET VENTILO -
+  pinMode(LED_HP,OUTPUT);
+  pinMode(LED_G,OUTPUT);
+  pinMode(LED_R,OUTPUT);
+  pinMode(VENTILO,OUTPUT);
+  // -------------------
+
   // ---- ECRAN ----
   LCD.CleanAll(WHITE);
   LCD.BacklightConf(LOAD_TO_EEPROM,map(luminosite,0,100,0,127)); // Luminosité (0-127) sauvegardée au reboot
@@ -588,35 +599,39 @@ void loop() {
     VENTILO_STATE = 2; // Allumer ventilo
 
     REACTING = 1; // En réaction
-  }else if(REACTING >= 3){ // Tout éteindre, arrêter réaction
+  }else if(REACTING >= 3 || (REACTING==1 && LOC != "started")){ // Tout éteindre, arrêter réaction
     LED_STATE = 3; // Eteindre LED
     VENTILO_STATE = 3; // Eteindre ventilo
 
     REACTING = 0; // Hors réaction
+
+    if(REACTING==1 && LOC != "started"){ // En réaction alors que pas dans menu started
+      M_Error(2);
+    }
   }
 
   // Gestion HP LED
   if(LED_STATE==2 && ((DOUBLE_LED_SECU && REACTING==1) || !DOUBLE_LED_SECU)){ // Allumer LED si éteinte
-    /* ALLUMER LED */Serial.println("Allumer LED");
+    analogWrite(LED_HP, 255);
     LED_STATE = 1; // Allumée
   }else if(LED_STATE==2 && (DOUBLE_LED_SECU && REACTING!=1)){ // Vouloir allumer LED hors réaction
-    /* ETEINDRE LED */Serial.println("Eteindre LED");
-    /* ETEINDRE VENTILO */Serial.println("Eteindre ventilo");
+    analogWrite(LED_HP, 0);
+    analogWrite(VENTILO, 0);
     REACTING = 3; // Tout éteindre
 
     M_Error(1); // Erreur de sécurite: Double sécu activée et pas en réaction
 
   }else if(LED_STATE>=3){ // Eteindre LED
-    /* ALLUMER LED */Serial.println("Allumer LED");
+    analogWrite(LED_HP, 0);
     LED_STATE = 0;
   }
 
   // Gestion ventilateur
   if(VENTILO_STATE==2){ // Allumer ventilo si éteint
-    /* ALLUMER VENTILO */Serial.println("Allumer ventilo");
+    analogWrite(VENTILO, 255);
     VENTILO_STATE = 1; // Allumé
   }else if(VENTILO_STATE==3){ // Eteindre VENTILO
-    /* ALLUMER LED */Serial.println("Allumer LED");
+    analogWrite(VENTILO, 0);
     VENTILO_STATE = 0;
   }
   

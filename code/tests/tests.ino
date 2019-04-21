@@ -1,14 +1,13 @@
 // TESTS VENTILO
-/* void setup() {
+void setup() {
   Serial.begin(9600);
   Serial.println("START");
   pinMode(11,OUTPUT);
+  analogWrite(11, 255);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  analogWrite(11, 255);
-} */
+}
 
 // TESTS THERMISTOR
 /*
@@ -51,7 +50,7 @@ void loop() {
 // TESTS FONCTIONS TRANSFORMATION SECONDES
 // -- Fonction générales --
 // Transformer temps secondes en HH:MM:SS
-String time_sec_toStr(unsigned long timeSec){
+/* String time_sec_toStr(unsigned long timeSec){
   unsigned long time[4];
   String timeStr[4];
 
@@ -110,3 +109,4 @@ void setup(){
 void loop(){
 
 }
+ */
