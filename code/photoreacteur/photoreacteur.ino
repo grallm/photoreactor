@@ -45,6 +45,7 @@ bool pushedPrev = true;
 bool pushed = false; // Appuie 1 fois
 
 // Variables de fonctionnement
+int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
 bool reacting = false;
 unsigned long time_left = 0; // Temps restant en secondes d'expérience
 bool start_ventilo = false; // Savoir si à démarrer
@@ -53,11 +54,58 @@ bool start_led = false; // Savoir si à démarrer
 bool LED_STATE = false; // Etat actuel (savoir si à démarrer)
 
 
+
+// -- Fonction générales --
+// Transformer temps secondes en HH:MM:SS
+String time_sec_toStr(unsigned long timeSec){
+  unsigned long time[4];
+  String timeStr[4];
+
+  // Heures
+  time[0] = timeSec/3600;
+  timeSec -= 3600*time[0];
+  timeStr[0] = String(time[0]);
+  timeStr[0] = (time[0]<10)? "0"+timeStr[0] : timeStr[0]; // Rajouter 0 si <10
+
+  // Minutes
+  time[1] = timeSec/60;
+  timeSec -= 60*time[1];
+  timeStr[1] = String(time[1]);
+  timeStr[1] = (time[1]<10)? "0"+timeStr[1] : timeStr[1];
+
+  // Secondes
+  time[2] = timeSec;
+  timeStr[2] = String(time[2]);
+  timeStr[2] = (time[2]<10)? "0"+timeStr[2] : timeStr[2];
+
+  // Retourner 00:00:00
+  return timeStr[0] +":"+ timeStr[1] +":"+ timeStr[2];
+}
+
+// Mettre le temps paramétré en secondes
+unsigned long time_to_sec(int* time){
+  unsigned long timeSec = 0;
+
+  // Secondes
+  timeSec += time[0];
+  timeSec += 10*time[1];
+
+  // Minutes
+  timeSec += 60*time[2];
+  timeSec += 10*60*time[3];
+
+  // Heures
+  timeSec += 3600*time[4];
+  unsigned long temp_time = time[5]; // Dépassement de capacité
+  timeSec += 10*(3600*temp_time);
+
+  return timeSec;
+}
+// ----------------
+
+
+
 // -- Fonctions de formattage --
-/*
- * TODO
- * - pouvoir aligner sur Y en haut et bas
- */
 // Donne X pour placer texte centre, droite ou gauche (Gauche=L, Droite=R, Centre=C) (donner le texte et la hauteur des lettres)
 int FF_placeX(String text, int fontX, String place = "C"){
   if(place=="C"){
@@ -118,22 +166,28 @@ void MF_title(String text){
 }
 
 // Ecrire du texte avec balises et params (placer texte X et Y)
-void MF_text(String text, String place = "HL"){
+void MF_text(String text, String place = "HL", bool jump=true){
   LCD.FontModeConf(Font_6x8, FM_ANL_AAA, BLACK_NO_BAC);
 
   int posX = 0;
   int posY = MF_pos[1];
   if(place=="BR"){ // Placer le texte
     posX = FF_placeX(text,6,"R");
-    posY = FF_placeY(text,6,"B");
+    posY = FF_placeY(text,8,"B");
   }else if(place=="C"){
     posX = FF_placeX(text,6,"C");
+  }else if(place=="BL" || place=="B"){
+    posY = FF_placeY(text,8,"B");
+  }else if(place == "R"){
+    posX = FF_placeX(text,6,"R");
   }
   
   LCD.DispStringAt(text.c_str(), posX, posY);
   
   MF_pos[0]=0;
-  MF_pos[1]+=8+MF_spacing;
+  if(jump){
+    MF_pos[1]+=8+MF_spacing;
+  }
 }
 // Ecrire du texte plus gros
 void MF_text_big(String text, String place = "HL"){
@@ -146,6 +200,8 @@ void MF_text_big(String text, String place = "HL"){
     posY = FF_placeY(text,16,"B");
   }else if(place=="C"){
     posX = FF_placeX(text,8,"C");
+  }else if(place=="BL" || place=="B"){
+    posY = FF_placeY(text,16,"B");
   }
   
   LCD.DispStringAt(text.c_str(), posX, posY);
@@ -155,16 +211,22 @@ void MF_text_big(String text, String place = "HL"){
 }
 
 // Boutton avec cadre, noir si sélectionné
-void MF_button(String text, bool select = false, bool center=true){
-  int posX=0;
-  if(center){ // Centrer le texte
+void MF_button(String text, bool select = false, String place="C", bool jump=true){
+  int posX=2;
+  int posY=MF_pos[1];
+  if(place=="C"){ // Centrer le texte
     posX = FF_placeX(text,6);
+  }else if(place=="BR"){
+    posX = FF_placeX(text,6, "R")-2;
+    posY = FF_placeY(text,8, "B")-2;
+  }else if(place=="BL"){
+    posY = FF_placeY(text,8, "B")-2;
   }
   
   if(select){ // Si sélectionné carré rempli
-    LCD.DrawRectangleAt(posX-2, MF_pos[1], 4+text.length()*6, 4+8, BLACK_FILL);
+    LCD.DrawRectangleAt(posX-2, posY, 4+text.length()*6, 4+8, BLACK_FILL);
   }else{
-    LCD.DrawRectangleAt(posX-2, MF_pos[1], 4+text.length()*6, 4+8, BLACK_NO_FILL);
+    LCD.DrawRectangleAt(posX-2, posY, 4+text.length()*6, 4+8, BLACK_NO_FILL);
   }
   
   if(select){ // Si sélectionné écrit en blanc
@@ -173,10 +235,11 @@ void MF_button(String text, bool select = false, bool center=true){
     LCD.FontModeConf(Font_6x8, FM_ANL_AAA, BLACK_NO_BAC);
   }
 
-  LCD.DispStringAt(text.c_str(), posX, MF_pos[1]+2);
+  LCD.DispStringAt(text.c_str(), posX, posY+2);
 
-  MF_pos[0]=0;
-  MF_pos[1]+=12+MF_spacing_button;
+  if(jump){
+    MF_pos[1]+=12+MF_spacing_button;
+  }
 }
 // ----------------
 
@@ -196,14 +259,39 @@ void M_Menu(int selected = 0){
   MF_text("v"+version, "BR");
 }
 
+// En cours de réaction
+/*
+ * TODO
+ * - Température actuelle
+ * - Pourcentage lumineux
+ * - Pause
+ * - Arrêter
+ * - Message "NE PAS OUVRIR !!!"
+ * - Actualisation chaque seconde
+ */
+void M_Started(int selected=0, bool pause = false, String temp = "??", String perc_lum = "??"){
+  LOC = "started";
+  select = true;
+  maxSelect = 2;
+  MF_leds(LED_R);
+  MF_reset();
+  String pause_txt = (pause)? "PAUSE" : "REACTION EN COURS...";
+  MF_title(pause_txt);
+  MF_text("Passe: "+ time_sec_toStr(time_to_sec(duration_val)-time_left) +"  |  "+ String(map(time_to_sec(duration_val)-time_left, 0,time_to_sec(duration_val), 0,100)) +"%");
+  MF_text("Restant: "+ time_sec_toStr(time_left));
+  MF_text("Fin: "+ time_sec_toStr(time_to_sec(duration_val)));
+  MF_text("Temp: "+ temp +" C", "L", false);
+  MF_text("Lum: "+ perc_lum +"%", "R");
+  pause_txt = (pause)? "Reprendre" : "Pause";
+  MF_button("Pause", (selected==1)? true:false, "BL", false);
+  MF_button("Arreter", (selected==2)? true:false, "BR");
+}
+
 // Sélection durée
 /*
  * TODO
- * - Pouvoir confirmer et annuler
  * - Limiter minutes et secondes
- * - Sauvegarder pour durée
  */
-int M_Duration_val[7] = {0,0,0,0,0,0};
 void M_Duration(int selected=1, int value=1){
   LOC = "duration";
   select = true;
@@ -211,8 +299,23 @@ void M_Duration(int selected=1, int value=1){
   static int selectedBefore; // Set selectedBefore if not set
   if(selectedBefore != value && (selected==7 || selected==8)){ // Si valeur différente précédente et sur Confirmer ou Annuler = menu
     if(selected==7){
-      /* SUITE */
+      time_left = 0;
+      // Secondes
+      time_left += duration_val[0];
+      time_left += 10*duration_val[1];
+
+      // Minutes
+      time_left += 60*duration_val[2];
+      time_left += 10*60*duration_val[3];
+
+      // Heures
+      time_left += 3600*duration_val[4];
+      unsigned long temp_time = duration_val[5]; // Dépassement de capacité
+      time_left += 10*(3600*temp_time);
+      
+      M_Started();
     }else if(selected==8){
+      CURSOR = 1;
       M_Menu();
     }
   }else{
@@ -234,12 +337,12 @@ void M_Duration(int selected=1, int value=1){
       LCD.CursorConf(ON, 10);
 
       // Affecteur/Afficher la valeur choisie
-      M_Duration_val[selected-1] = value-1;
+      duration_val[selected-1] = value-1;
     }else
     {
       LCD.CursorConf(OFF, 10);
     }
-    MF_text_big(String(M_Duration_val[5])+String(M_Duration_val[4]) +":"+ String(M_Duration_val[3])+String(M_Duration_val[2]) +":"+ String(M_Duration_val[1])+String(M_Duration_val[0]), "C");
+    MF_text_big(String(duration_val[5])+String(duration_val[4]) +":"+ String(duration_val[3])+String(duration_val[2]) +":"+ String(duration_val[1])+String(duration_val[0]), "C");
 
     MF_button("Confirmer", (selected==7)? true:false);
     MF_button("Annuler", (selected==8)? true:false);
@@ -247,25 +350,6 @@ void M_Duration(int selected=1, int value=1){
 
   // Sauvegarder valeur précédente de la rotation
   selectedBefore = value;
-}
-
-// En cours de réaction
-/*
- * TODO
- * - Temps restant
- * - Température actuelle
- * - Pourcentage lumineux
- * - Pause
- * - Arrêter
- * - 
- */
-void M_Started(){
-  LOC = "started";
-  select = true;
-  maxSelect = 3;
-  MF_leds(LED_R);
-  MF_reset();
-  MF_title("REACTION EN COURS...");
 }
 
 // Informations sur le photoréacteur
@@ -321,6 +405,7 @@ void clickGestionary(){
     switch (CURSOR)
     {
       case 1:
+        CURSOR_CLICK = 1;
         M_Duration();
         break;
       case 3:
@@ -328,13 +413,14 @@ void clickGestionary(){
         break;
     }
   }else if(LOC == "infos"){
+    CURSOR_CLICK = 3;
     M_Menu();
   }else if(LOC == "duration"){
     // Place curseur sur bouton ou chiffre
     CURSOR_CLICK = (CURSOR_CLICK == maxSelect_click)? 1 : CURSOR_CLICK+1;
     // Affecte la valeur au curseur
     if(CURSOR_CLICK > 0 && CURSOR_CLICK < 7){
-      CURSOR = M_Duration_val[CURSOR_CLICK-1]+1;
+      CURSOR = duration_val[CURSOR_CLICK-1]+1;
     }
 
     M_Duration(CURSOR_CLICK, CURSOR);
