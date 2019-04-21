@@ -313,7 +313,12 @@ void M_Duration(int selected=1, int value=1){
       unsigned long temp_time = duration_val[5]; // Dépassement de capacité
       time_left += 10*(3600*temp_time);
       
-      M_Started();
+      if(time_left < 10){ // Durée minimum pour lancer
+        /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
+      }else{
+        CURSOR = 0; // Rien sélecté
+        M_Started();
+      }
     }else if(selected==8){
       CURSOR = 1;
       M_Menu();
@@ -413,7 +418,7 @@ void clickGestionary(){
         break;
     }
   }else if(LOC == "infos"){
-    CURSOR_CLICK = 3;
+    CURSOR = 3;
     M_Menu();
   }else if(LOC == "duration"){
     // Place curseur sur bouton ou chiffre
@@ -424,6 +429,17 @@ void clickGestionary(){
     }
 
     M_Duration(CURSOR_CLICK, CURSOR);
+  }else if(LOC == "started"){
+    switch (CURSOR)
+    {
+    case 1:
+      /* PAUSE */
+      break;
+    
+    case 2:
+      /* ANNULER */
+      break;
+    }
   }
 }
 
@@ -488,6 +504,7 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
   M_Menu();
+  // M_Started();
   // ------------------
 }
 

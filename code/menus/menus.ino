@@ -296,7 +296,12 @@ void M_Duration(int selected=1, int value=1){
       unsigned long temp_time = duration_val[5]; // Dépassement de capacité
       time_left += 10*(3600*temp_time);
       
-      M_Started();
+      if(time_left < 10){ // Durée minimum pour lancer
+        /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
+      }else{
+        CURSOR = 0; // Rien sélecté
+        M_Started();
+      }
     }else if(selected==8){
       CURSOR = 1;
       M_Menu();
