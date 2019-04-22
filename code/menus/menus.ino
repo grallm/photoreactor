@@ -252,7 +252,7 @@ void M_Finish(unsigned long time, bool aborted = false){
   MF_text("Temp. moy.: ?? C"); // 
   MF_text("Lumi. moy.: ??%");
   if(aborted){
-    MF_text("ARRETE", "C");
+    MF_text("ARRETEE", "C");
   }
 }
 

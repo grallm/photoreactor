@@ -3,12 +3,9 @@ const String version = "0.1";
 const String version_hardware = "1.0";
 /*
  * PRIORITY
- * - Annulation Menu Started
- * 
+ * - Faire fonctionner clignotement
  * 
  * TODO
- * - Verification et allumage LED + ventilo
- * - Menu d'erreur
  * - Gestion des LEDs encodeur
  * - Clignotement LEDs
  * - Vérifier si menus ne coupent pas phrases (ex: Erreurs)
@@ -17,11 +14,12 @@ const String version_hardware = "1.0";
  * 
  *
  * AMÉLIORATIONS
- * - Décompte d'une seconde -> delay petit et faire jusqu'à 1s ?
  * - Passer de 60s à 1mn et 60mn à 1h
  * - Bonne gestion ventilateur selon température
  * - Meilleure actualisation écran -> refresh que les parties nécessaires
  * - Message "NE PAS OUVRIR !!!" lorsqu'en réaction
+ * - Veille écran
+ * - optimiser le nombre/type de variables et d'expressions
  */
 
 #include <Wire.h>
@@ -31,7 +29,7 @@ I2C_LCD LCD;
 uint8_t I2C_LCD_ADDRESS = 0x51; // Adresse écran
 
 /* CONFIGURATION */
-const int luminosite = 100, // en %
+const short luminosite = 100, // en %
     LED_R = 6, // Pin LED encodeur rouge
     LED_G = 5, // Pin LED encodeur verte
     LED_HP = 9, // Pin contrôle LED haute puissance
@@ -46,24 +44,27 @@ String LOC = "home";
 
 // Sélection
 bool select = true; // Curseur activé
-int CURSOR = 0; // Valeur sélecteur (0 = neutre)
-int maxSelect = 3; // Valeur max de sélection (nombre de sélections possibles)
+short CURSOR = 0; // Valeur sélecteur (0 = neutre)
+short maxSelect = 3; // Valeur max de sélection (nombre de sélections possibles)
 
 bool select_click = false; // Curseur click activé
-int CURSOR_CLICK = 1; // Sélection avec le click
-int maxSelect_click = 8; // Valeur max de sélection (nombre de sélections possibles)
+short CURSOR_CLICK = 1; // Sélection avec le click
+short maxSelect_click = 8; // Valeur max de sélection (nombre de sélections possibles)
 
 // Variables interrupteur
 bool pushedPrev = true;
 bool pushed = false; // Appuie 1 fois
 
 // Variables de fonctionnement
-int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
+short duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
 unsigned long time_left = 0; // Temps restant en secondes d'expérience
 short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 unsigned long last_sec_millis = millis(); // Sauvegarde dernière valeur lors décompte 1 seconde
+short led_twinkle = 0; // Stocker PIN
+bool TWINKLE_STATE = false; // Savoir si éteinte ou allumée
+unsigned long last_twinkle = 0; // Stockage millis clignotement pour ne pas clignoter extêmement vite
 
 
 // -- Fonction générales --
@@ -159,11 +160,22 @@ void MF_reset(){
 }
 
 // Configurer les variables des LEDs selon Menu
+/*
+* TODO
+* - variables des LEDs et agir sur celles-ci
+* - Clignotement
+*/
 void MF_leds(int led, bool twinkle = false){
-  /*
-   * TODO
-   * - variables des LEDs et agir sur celles-ci
-   */
+  digitalWrite(LED_G, LOW);
+  digitalWrite(LED_R, LOW);
+
+  digitalWrite(led, HIGH);
+  if(twinkle){
+    led_twinkle = led;
+    TWINKLE_STATE = true;
+  }else{
+    led_twinkle = 0;
+  }
 }
 
 // Titre d'un menu
@@ -285,7 +297,7 @@ void M_Finish(unsigned long time, bool aborted = false){
   MF_text("Temp. moy.: ?? C"); // 
   MF_text("Lumi. moy.: ??%");
   if(aborted){
-    MF_text("ARRETE", "C");
+    MF_text("ARRETEE", "C");
   }
 }
 
@@ -299,7 +311,7 @@ void M_Started(int selected=0, bool pause = false, String temp = "??", String pe
   LOC = "started";
   select = true;
   maxSelect = 2;
-  MF_leds(LED_G, true);
+  MF_leds(LED_G, (pause)?false:true);
   MF_reset();
   String pause_txt = (pause)? "PAUSE" : "REACTION EN COURS...";
   MF_title(pause_txt);
@@ -409,7 +421,7 @@ void M_Error(int errID=0){
   
   LOC = "error";
   select = false;
-  MF_leds(LED_R, true);
+  MF_leds(LED_R);
   MF_reset();
   MF_title("ERREUR n" + String(errID));
   MF_text("PROBLEME:");
@@ -609,6 +621,27 @@ void loop() {
       M_Error(2);
     }
   }
+
+  
+  // Clignement LED
+  if(led_twinkle!=0){ // Si clignotement activé allumer ou éteindre selon étant toutes les 0.5s
+    //if((last_twinkle>millis()+400 || last_twinkle<millis()-400) && (((millis()%500)==0) || ((millis()%501)==0) || ((millis()%499)==0))){ // Toutes les 0.5s
+    if((millis()%1000)==0 && last_twinkle!=millis() && (last_twinkle>millis()+900 || last_twinkle<millis()-900)){
+      Serial.println(String(millis()));
+      Serial.println(TWINKLE_STATE);
+      if(TWINKLE_STATE){
+        TWINKLE_STATE = false;
+        digitalWrite(led_twinkle, LOW);
+        Serial.println("OFF");
+      }else{
+        digitalWrite(led_twinkle, HIGH);
+        TWINKLE_STATE = true;
+        Serial.println("ON");
+      }
+      last_twinkle = millis();
+    }
+  }
+
 
   // Gestion HP LED
   if(LED_STATE==2 && ((DOUBLE_LED_SECU && REACTING==1) || !DOUBLE_LED_SECU)){ // Allumer LED si éteinte

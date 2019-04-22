@@ -1,5 +1,5 @@
 // TESTS VENTILO
-void setup() {
+/* void setup() {
   Serial.begin(9600);
   Serial.println("START");
   pinMode(11,OUTPUT);
@@ -7,7 +7,7 @@ void setup() {
 }
 
 void loop() {
-}
+} */
 
 // TESTS THERMISTOR
 /*
@@ -108,5 +108,37 @@ void setup(){
 
 void loop(){
 
+} */
+
+
+// TESTS CLIGNOTEMENT
+const int LED_R = 6, // Pin LED encodeur rouge
+    LED_G = 5; // Pin LED encodeur verte
+
+short led_twinkle = 0; // Stocker PIN
+bool TWINKLE_STATE = false; // Savoir si éteinte ou allumée
+unsigned long last_twinkle = 0; // Stockage millis clignotement pour ne pas clignoter extêmement vite
+
+void setup(){
+  pinMode(LED_G,OUTPUT);
+  pinMode(LED_R,OUTPUT);
+  led_twinkle = LED_G;
 }
- */
+
+void loop(){
+  // Clignement LED
+  if(led_twinkle!=0 && (millis()%500)==0 && (last_twinkle>millis()+5 || last_twinkle<millis()-5)){ // Si clignotement activé allumer ou éteindre selon étant toutes les 0.5s
+    Serial.println(String(millis()));
+    if(TWINKLE_STATE){
+      digitalWrite(led_twinkle, LOW);
+      TWINKLE_STATE = false;
+      Serial.println("OFF");
+    }else{
+      digitalWrite(led_twinkle, HIGH);
+      TWINKLE_STATE = true;
+      Serial.println("ON");
+    }
+    last_twinkle = millis();
+  }
+
+}
