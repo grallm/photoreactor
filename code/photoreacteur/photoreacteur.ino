@@ -37,6 +37,10 @@ const short luminosite = 100, // en %
     ENC_ROT_1 = 2, // Encodeur rotatif
     ENC_ROT_2 = 3, // Encodeur rotatif
     ENC_INTERRUPTOR = 4, // Interrupteur
+    PIN_THERM = A2, // Pin capteur température
+    PIN_LUM = A3, // Pin capteur lumière
+    CAL_LUM_MIN = 8,
+    CAL_LUM_MAX = 145, // Calibrage Min et Max de la photoresistance slon LED
     DOUBLE_LED_SECU = true; // Double sécurité LED (allumée que lorsqu'en réaction)
 
 // Localisation
@@ -65,6 +69,7 @@ unsigned long last_sec_millis = millis(); // Sauvegarde dernière valeur lors d�
 short led_twinkle = 0; // Stocker PIN
 bool TWINKLE_STATE = false; // Savoir si éteinte ou allumée
 unsigned long last_twinkle = 0; // Stockage millis clignotement pour ne pas clignoter extêmement vite
+int start_temp = 0; // Température au démarrage
 
 
 // -- Fonction générales --
@@ -295,7 +300,7 @@ void M_Finish(unsigned long time, bool aborted = false){
   MF_text("Temps d'exposition", "C");
   MF_text(time_sec_toStr(time), "C");
   MF_text("Temp. moy.: ?? C"); // 
-  MF_text("Lumi. moy.: ??%");
+  MF_text("Lumi. moy.: ?? %");
   if(aborted){
     MF_text("ARRETEE", "C");
   }
@@ -412,8 +417,8 @@ void M_Infos(){
 
 // Erreurs
 void M_Error(int errID=0){
-  String erreurs[4] = {"Erreur inconnue", "Sécurité LED", "LED ON pas M_Started"};
-  String solutions[4] = {"", "Relancer expérience", ""};
+  String erreurs[7] = {"Erreur inconnue", "Sécurité LED", "LED ON pas M_Started", "Temperature haute", "Temperature basse", "Disfonctionnement LED"};
+  String solutions[7] = {"", "Relancer expérience", "", "Temp. trop haute", "Temp. trop basse", "Verifier LED/branch."};
   String solution = solutions[errID];
   if(solution == ""){ // Erreur défaut
     solution = "Eteindre/Rallumer";
@@ -564,6 +569,17 @@ void setup() {
   pinMode(LED_G,OUTPUT);
   pinMode(LED_R,OUTPUT);
   pinMode(VENTILO,OUTPUT);
+  digitalWrite(LED_HP,LOW); // Eteindre au démarrage
+  // -------------------
+
+  // ---- CAPTEURS ----
+  pinMode(PIN_THERM, INPUT);
+  pinMode(PIN_LUM, INPUT);
+
+  analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
+  start_temp = analogRead(PIN_THERM);
+  start_temp = map(start_temp,0,1023,0,5000);// Tension entre 0 et 5000 mV
+  start_temp = map(start_temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
   // -------------------
 
   // ---- ECRAN ----
@@ -584,7 +600,7 @@ void loop() {
   if(clicked){
     clickGestionary();
   }
-
+analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
 
   // Gestion temps, décompte
   if(REACTING==1 && time_left > 0 && (millis()-last_sec_millis)>=1000){ // En cours, baisser compteur
@@ -625,18 +641,13 @@ void loop() {
   
   // Clignement LED
   if(led_twinkle!=0){ // Si clignotement activé allumer ou éteindre selon étant toutes les 0.5s
-    //if((last_twinkle>millis()+400 || last_twinkle<millis()-400) && (((millis()%500)==0) || ((millis()%501)==0) || ((millis()%499)==0))){ // Toutes les 0.5s
     if((millis()%1000)==0 && last_twinkle!=millis() && (last_twinkle>millis()+900 || last_twinkle<millis()-900)){
-      Serial.println(String(millis()));
-      Serial.println(TWINKLE_STATE);
       if(TWINKLE_STATE){
         TWINKLE_STATE = false;
         digitalWrite(led_twinkle, LOW);
-        Serial.println("OFF");
       }else{
         digitalWrite(led_twinkle, HIGH);
         TWINKLE_STATE = true;
-        Serial.println("ON");
       }
       last_twinkle = millis();
     }
@@ -667,7 +678,41 @@ void loop() {
     analogWrite(VENTILO, 0);
     VENTILO_STATE = 0;
   }
-  
+
+
+  int temp;
+  int lum;
+  int valTemp;
+  // Valeurs capteurs: photorésistance et thermomètre
+	/* TODO
+	 * - faire fonctionner thermomètre
+	 * - capteur lum attend que LED s'allume
+	*/
+  if(REACTING == 1){ // En réaction
+    // Lecture température
+    valTemp = analogRead(PIN_THERM);
+    temp = map(valTemp,0,1023,0,5000);// Tension entre 0 et 5000 mV
+    temp = map(temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+
+    /* if(temp>start_temp+10 || temp>50){ // Températures extrêmes
+      REACTING = 3;
+      M_Error(3);
+    }else if(temp<start_temp-10 || temp<1){
+      REACTING = 3;
+      M_Error(4);
+    } */
+
+
+    // Lecture pourcentage éclairage
+    lum = analogRead(PIN_LUM);
+    lum = map(lum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
+
+    /* if(lum>120 || lum<30){ // Disfonctionnement LED
+      REACTING = 3;
+      M_Error(5);
+    } */
+  }
+
 
   // Rafraîchissement de l'écran
   if(refreshScreen){
@@ -676,7 +721,7 @@ void loop() {
     }else if(LOC == "duration"){
       M_Duration(CURSOR_CLICK, CURSOR);
     }else if(LOC == "started"){
-      M_Started(CURSOR, (REACTING==1)?false:true);
+      M_Started(CURSOR, (REACTING==1)?false:true, String(temp)+String(valTemp), String(lum));
     }
   }
 }
