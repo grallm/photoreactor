@@ -3,9 +3,12 @@ const String version = "0.1";
 const String version_hardware = "1.0";
 /*
  * PRIORITY
+ * - Faire fonctionner la lecture du thermomètre
  * -- Faire fonctionner clignotement
  * 
  * TODO
+ * - Attendre avant de commencer la lecture de la luminosité (LED pas allumée -> 0%)
+ * - Remettre en place blocage depuis thermomètre et photorésistance
  * -- Clignotement LEDs
  * - Gestion température
  * - Gestion température et Luminosité moyennes
@@ -67,7 +70,13 @@ unsigned long last_sec_millis = millis(); // Sauvegarde dernière valeur lors d�
 short led_twinkle = 0; // Stocker PIN
 bool TWINKLE_STATE = false; // Savoir si éteinte ou allumée
 unsigned long last_twinkle = 0; // Stockage millis clignotement pour ne pas clignoter extêmement vite
-int start_temp = 0; // Température au démarrage
+
+// Variables capteurs
+short start_temp = 0; // Température au démarrage
+float moy_temp_accu = 0; // Accumulateur température chaque seconde pour calculer moyenne
+float max_diff_temp = 0; // Ecart maximum avec la moyenne
+unsigned long moy_lumi_accu = 0; // Accumulateur lumière chaque seconde pour calculer moyenne
+short max_diff_lumi = 0; // Ecart maximum avec la moyenne
 
 
 // -- Fonction générales --
@@ -163,11 +172,6 @@ void MF_reset(){
 }
 
 // Configurer les variables des LEDs selon Menu
-/*
-* TODO
-* - variables des LEDs et agir sur celles-ci
-* - Clignotement
-*/
 void MF_leds(int led, bool twinkle = false){
   digitalWrite(LED_G, LOW);
   digitalWrite(LED_R, LOW);
@@ -289,7 +293,7 @@ void M_Menu(int selected = 0){
 /* TODO
  * - Afficher temp et lum moy
  */
-void M_Finish(unsigned long time, bool aborted = false){
+void M_Finish(unsigned long time, bool aborted = false, String moy_temp = "??", String moy_perc_lum = "??"){
   LOC = "finish";
   select = false;
   MF_leds(LED_G);
@@ -297,19 +301,14 @@ void M_Finish(unsigned long time, bool aborted = false){
   MF_title("EXPERIENCE TERMINEE");
   MF_text("Temps d'exposition", "C");
   MF_text(time_sec_toStr(time), "C");
-  MF_text("Temp. moy.: ?? C"); // 
-  MF_text("Lumi. moy.: ?? %");
+  MF_text("Temp. moy.: "+ moy_temp +" C"); // 
+  MF_text("Lumi. moy.: "+ moy_perc_lum +" %");
   if(aborted){
     MF_text("ARRETEE", "C");
   }
 }
 
 // En cours de réaction
-/*
- * TODO
- * - Température actuelle
- * - Pourcentage lumineux
- */
 void M_Started(int selected=0, bool pause = false, String temp = "??", String perc_lum = "??"){
   LOC = "started";
   select = true;
@@ -359,6 +358,10 @@ void M_Duration(int selected=1, int value=1){
         // Démarrer réaction
         REACTING = 2;
 
+        unsigned long moy_temp_accu = 0;
+        short max_diff_temp = 0;
+        unsigned long moy_lumi_accu = 0;
+        short max_diff_lumi = 0; 
         M_Started();
       }
     }else if(selected==8){
@@ -438,9 +441,6 @@ void M_Error(int errID=0){
 
 
 // -- Fonctions et variables encodeur --
-/* TODO
- */
-
 // Variables rotation encodeur
 volatile int lastEncoded = 0;
 volatile long encoderValue = 0; // 1 tour = 98 crans
@@ -495,7 +495,8 @@ void clickGestionary(){
     
     case 2: // Arrêté
       REACTING = 3;
-      M_Finish(time_to_sec(duration_val)-time_left,true);
+      unsigned long time_passed = time_to_sec(duration_val)-time_left;
+      M_Finish(time_to_sec(duration_val)-time_left,true, String(round((moy_temp_accu/time_passed)*10)/10)+"+"+String(max_diff_temp), String(round(moy_lumi_accu/time_passed))+"+"+String(max_diff_lumi));
       break;
     }
   }else if(LOC == "error"){
@@ -601,40 +602,57 @@ void loop() {
 
   // Gestion temps, décompte
   float temp;
+  float moy_temp;
   int lum;
+  int moy_lum;
   int valTemp;
   if(REACTING==1 && time_left > 0 && (millis()-last_sec_millis)>=1000){ // En cours, baisser compteur
     last_sec_millis = millis();
     time_left--;
 
+    unsigned long time_passed = time_to_sec(duration_val)-time_left;
+
     // Valeurs capteurs: photorésistance et thermomètre
     /* TODO
     * - faire fonctionner thermomètre
     * - capteur lum attend que LED s'allume
+    * - Vérifier si temp et lum non définies ne s'affichent pas avec valeur nawak
+    * - limiter décimales température
     */
-    // Lecture température
-    analogRead(PIN_THERM);
-    valTemp = analogRead(PIN_THERM);
-    temp = map(valTemp,0,1023,0,5000);// Tension entre 0 et 5000 mV
-    temp = map(temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+    if(time_passed>2){ // Attendre 2s avant de commencer à capter
+      // Lecture température
+      analogRead(PIN_THERM);
+      valTemp = analogRead(PIN_THERM);
+      temp = map(valTemp,0,1023,0,5000);// Tension entre 0 et 5000 mV
+      temp = map(temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+      temp = round(temp*10)/10; // Arrondir à 1 décimale
+      
+      if(abs(temp-moy_temp)>max_diff_temp){ // Plus gros écart température
+        max_diff_temp = abs(temp-moy_temp);
+      }
 
-    /* if(temp>start_temp+10 || temp>50){ // Températures extrêmes
-      REACTING = 3;
-      M_Error(3);
-    }else if(temp<start_temp-10 || temp<1){
-      REACTING = 3;
-      M_Error(4);
-    } */
+      if(temp>start_temp+10 || temp>50){ // Températures extrêmes
+        REACTING = 3;
+        M_Error(3);
+      }else if(temp<start_temp-10 || temp<1){
+        REACTING = 3;
+        M_Error(4);
+      }
 
 
-    // Lecture pourcentage éclairage
-    lum = analogRead(PIN_LUM);
-    lum = map(lum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
+      // Lecture pourcentage éclairage
+      lum = analogRead(PIN_LUM);
+      lum = map(lum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
 
-    /* if(lum>120 || lum<30){ // Disfonctionnement LED
-      REACTING = 3;
-      M_Error(5);
-    } */
+      if(abs(lum-moy_lum)>max_diff_lumi){ // Plus gros écart lumière
+        max_diff_lumi = abs(lum-moy_lum);
+      }
+
+      if(lum>120 || lum<30){ // Disfonctionnement LED
+        REACTING = 3;
+        M_Error(5);
+      }
+    }
     // -----------------
 
     refreshScreen = true;
@@ -644,7 +662,8 @@ void loop() {
     time_left = 0;
     REACTING = 3; // Arrêter
     
-    M_Finish(time_to_sec(duration_val)); // Menu de fin d'expérience
+    unsigned long time_passed = time_to_sec(duration_val)-time_left;
+    M_Finish(time_to_sec(duration_val), false, String(round((moy_temp_accu/time_passed)*10)/10)+"+"+String(max_diff_temp), String(round(moy_lumi_accu/time_passed))+"+"+String(max_diff_lumi)); // Menu de fin d'expérience
 
     // Reset temps configuré
     for(short i=0; i<6; i++){
