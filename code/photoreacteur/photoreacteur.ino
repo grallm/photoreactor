@@ -3,13 +3,11 @@ const String version = "0.1";
 const String version_hardware = "1.0";
 /*
  * PRIORITY
- * - Faire fonctionner clignotement
+ * -- Faire fonctionner clignotement
  * 
  * TODO
- * - Gestion des LEDs encodeur
- * - Clignotement LEDs
- * - Vérifier si menus ne coupent pas phrases (ex: Erreurs)
- * - Gestion température et Luminosité
+ * -- Clignotement LEDs
+ * - Gestion température
  * - Gestion température et Luminosité moyennes
  * 
  *
@@ -39,8 +37,8 @@ const short luminosite = 100, // en %
     ENC_INTERRUPTOR = 4, // Interrupteur
     PIN_THERM = A2, // Pin capteur température
     PIN_LUM = A3, // Pin capteur lumière
-    CAL_LUM_MIN = 8,
-    CAL_LUM_MAX = 145, // Calibrage Min et Max de la photoresistance slon LED
+    CAL_LUM_MIN = 7,
+    CAL_LUM_MAX = 146, // Calibrage Min et Max de la photoresistance slon LED
     DOUBLE_LED_SECU = true; // Double sécurité LED (allumée que lorsqu'en réaction)
 
 // Localisation
@@ -600,12 +598,45 @@ void loop() {
   if(clicked){
     clickGestionary();
   }
-analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
 
   // Gestion temps, décompte
+  float temp;
+  int lum;
+  int valTemp;
   if(REACTING==1 && time_left > 0 && (millis()-last_sec_millis)>=1000){ // En cours, baisser compteur
     last_sec_millis = millis();
     time_left--;
+
+    // Valeurs capteurs: photorésistance et thermomètre
+    /* TODO
+    * - faire fonctionner thermomètre
+    * - capteur lum attend que LED s'allume
+    */
+    // Lecture température
+    analogRead(PIN_THERM);
+    valTemp = analogRead(PIN_THERM);
+    temp = map(valTemp,0,1023,0,5000);// Tension entre 0 et 5000 mV
+    temp = map(temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+
+    /* if(temp>start_temp+10 || temp>50){ // Températures extrêmes
+      REACTING = 3;
+      M_Error(3);
+    }else if(temp<start_temp-10 || temp<1){
+      REACTING = 3;
+      M_Error(4);
+    } */
+
+
+    // Lecture pourcentage éclairage
+    lum = analogRead(PIN_LUM);
+    lum = map(lum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
+
+    /* if(lum>120 || lum<30){ // Disfonctionnement LED
+      REACTING = 3;
+      M_Error(5);
+    } */
+    // -----------------
+
     refreshScreen = true;
   
   }else if(REACTING==1 && time_left <= 0 && (millis()-last_sec_millis)>=1000){ // Terminé, tout arrêter (pas ventilo ?)
@@ -679,41 +710,6 @@ analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
     VENTILO_STATE = 0;
   }
 
-
-  int temp;
-  int lum;
-  int valTemp;
-  // Valeurs capteurs: photorésistance et thermomètre
-	/* TODO
-	 * - faire fonctionner thermomètre
-	 * - capteur lum attend que LED s'allume
-	*/
-  if(REACTING == 1){ // En réaction
-    // Lecture température
-    valTemp = analogRead(PIN_THERM);
-    temp = map(valTemp,0,1023,0,5000);// Tension entre 0 et 5000 mV
-    temp = map(temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
-
-    /* if(temp>start_temp+10 || temp>50){ // Températures extrêmes
-      REACTING = 3;
-      M_Error(3);
-    }else if(temp<start_temp-10 || temp<1){
-      REACTING = 3;
-      M_Error(4);
-    } */
-
-
-    // Lecture pourcentage éclairage
-    lum = analogRead(PIN_LUM);
-    lum = map(lum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
-
-    /* if(lum>120 || lum<30){ // Disfonctionnement LED
-      REACTING = 3;
-      M_Error(5);
-    } */
-  }
-
-
   // Rafraîchissement de l'écran
   if(refreshScreen){
     if(LOC == "home"){
@@ -721,7 +717,7 @@ analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
     }else if(LOC == "duration"){
       M_Duration(CURSOR_CLICK, CURSOR);
     }else if(LOC == "started"){
-      M_Started(CURSOR, (REACTING==1)?false:true, String(temp)+String(valTemp), String(lum));
+      M_Started(CURSOR, (REACTING==1)?false:true, String(temp), String(lum));
     }
   }
 }
