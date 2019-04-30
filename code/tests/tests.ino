@@ -13,7 +13,7 @@ void loop() {
 
 // TESTS CAPTEURS
 const short PIN = 9;
-const int PIN_THERM = A2;
+const int PIN_THERM = A0;
 const int P_LUM = A3;
 
 int CAL_LUM_MIN = 5,
@@ -29,16 +29,16 @@ void setup(){
 void loop() {
   analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
   int temp = analogRead(PIN_THERM);
-  //Serial.println(valTherm);
+  Serial.println(temp);
   // --- LM35DZ
-  //float temp = valTherm * (5.0 / 1023.0 * 100.0); // Conversion en degrés Celsius
+  temp = temp * (5.0 / 1023.0 * 100.0); // Conversion en degrés Celsius
   // ----------
   // --- TMP36
-  Serial.println(temp);
+  /* Serial.println(temp);
   temp = map(temp,0,1023,0,5000);// Tension entre 0 et 5000 mV
-  temp = map(temp,0,1750,-50,125); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+  temp = map(temp,0,1750,-57,118); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+  // ----------*/
   Serial.println(temp);
-  // ----------
 
 
   // --- Luminosité - photorésistance ---
