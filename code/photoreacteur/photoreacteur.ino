@@ -4,6 +4,9 @@ const String version_hardware = "1.0";
 /*
  * PRIORITY
  * - Faire fonctionner la lecture du thermomètre
+ * - calibrer thermomètre
+ * - Utiliser floats pour température
+ * - Différence lumière non fonctionnelle
  * 
  * TODO
  * - Remettre en place blocage depuis thermomètre et photorésistance
@@ -509,7 +512,7 @@ void clickGestionary(){
     case 2: // Arrêté
       REACTING = 3;
       unsigned long time_passed = time_to_sec(duration_val)-time_left - 2;
-      M_Finish(time_to_sec(duration_val)-time_left,true, String(round(((float)moy_temp_accu/time_passed)*10)/10)+"+"+String(max_diff_temp), String(round(moy_lumi_accu/time_passed))+"+"+String(max_diff_lumi));
+      M_Finish(time_to_sec(duration_val)-time_left,true, String(round((moy_temp_accu/time_passed)*10)/10)+"+"+String(max_diff_temp), String(round(moy_lumi_accu/time_passed))+"+"+String(max_diff_lumi));
       break;
     }
   }else if(LOC == "error"){
@@ -588,10 +591,11 @@ void setup() {
   pinMode(PIN_THERM, INPUT);
   pinMode(PIN_LUM, INPUT);
 
-  analogRead(PIN_THERM); // Lecture dans le vide car valeur inexacte
-  start_temp = analogRead(PIN_THERM);
-  start_temp = map(start_temp,0,1023,0,5000);// Tension entre 0 et 5000 mV
-  start_temp = map(start_temp,0,1750,-57,118); // Tension de 0 à 1750mV en température de -50°C à 125°C + réglage;
+  // Lecture température
+  int valTemp = analogRead(PIN_THERM);
+  // Capteur LM35DZ
+  start_temp = valTemp * (5.0 / 1023.0 * 100.0); // Conversion en degrés Celsius
+  start_temp = round(start_temp*10)/10; // Arrondir à 1 décimale
   // -------------------
 
   // ---- ECRAN ----
@@ -632,7 +636,7 @@ void loop() {
       int valTemp = analogRead(PIN_THERM);
       // Capteur LM35DZ
       temp_mes = valTemp * (5.0 / 1023.0 * 100.0); // Conversion en degrés Celsius
-      temp_mes = round(temp_mes*10)/10; // Arrondir à 1 décimale
+      temp_mes = round(temp_mes*10.0)/10.0; // Arrondir à 1 décimale
 
       moy_temp_accu += temp_mes;
       
@@ -675,7 +679,7 @@ void loop() {
     REACTING = 3; // Arrêter
     
     unsigned long time_passed = time_to_sec(duration_val)-time_left - 2;
-    M_Finish(time_to_sec(duration_val), false, String(round(((float)moy_temp_accu/time_passed)*10)/10)+"+"+String(max_diff_temp), String(round(moy_lumi_accu/time_passed))+"+"+String(max_diff_lumi));
+    M_Finish(time_to_sec(duration_val), false, String(round((moy_temp_accu/time_passed)*10)/10)+"+"+String(max_diff_temp), String(round(moy_lumi_accu/time_passed))+"+"+String(max_diff_lumi));
 
     // Reset temps configuré
     for(short i=0; i<6; i++){

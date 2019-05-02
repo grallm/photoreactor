@@ -12,7 +12,7 @@ void loop() {
 }*/
 
 // TESTS CAPTEURS
-const short PIN = 9;
+/* const short PIN = 9;
 const int PIN_THERM = A0;
 const int P_LUM = A3;
 
@@ -34,23 +34,22 @@ void loop() {
   temp = temp * (5.0 / 1023.0 * 100.0); // Conversion en degrés Celsius
   // ----------
   // --- TMP36
-  /* Serial.println(temp);
-  temp = map(temp,0,1023,0,5000);// Tension entre 0 et 5000 mV
-  temp = map(temp,0,1750,-57,118); // Tension de 0 à 1750mV en température de -50°C à 125°C;
-  // ----------*/
+  // temp = map(temp,0,1023,0,5000);// Tension entre 0 et 5000 mV
+  // temp = map(temp,0,1750,-57,118); // Tension de 0 à 1750mV en température de -50°C à 125°C;
+  // ----------
   Serial.println(temp);
 
 
   // --- Luminosité - photorésistance ---
-  /*int valLum = analogRead(P_LUM);
-  Serial.println(valLum);
-  int lum = map(valLum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
-  Serial.println(lum);*/
+  // int valLum = analogRead(P_LUM);
+  // Serial.println(valLum);
+  // int lum = map(valLum, CAL_LUM_MIN, CAL_LUM_MAX, 0,100); // Eclairage en %
+  // Serial.println(lum);
   Serial.println();
 
   
   delay(1000);
-}
+} */
 
 // TESTS FONCTIONS TRANSFORMATION SECONDES
 // -- Fonction générales --
@@ -148,3 +147,20 @@ void loop(){
 
 }
 */
+
+
+// TESTS MOYENNES ET DIFF MAX (TEMP ET LUM)
+
+void setup(){
+  Serial.begin(9600);
+  Serial.println("START");
+
+
+  float moy_accu = 24.1+32.1+34.8;
+  Serial.println(String( round(moy_accu/3.0*10.0)/10.0 ));
+
+  Serial.println();
+}
+
+void loop(){
+}

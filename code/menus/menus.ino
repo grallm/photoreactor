@@ -25,12 +25,25 @@ bool select = true;
 int maxSelect = 3;
 
 // Variables de fonctionnement
-int duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
+short duration_val[7] = {0,0,0,0,0,0}; // Temps de durée réglé
 unsigned long time_left = 0; // Temps restant en secondes d'expérience
 short REACTING = 0; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short VENTILO_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 short LED_STATE = false; // Etat (0: OFF / 1: ON / 2: To start / >=3: To stop)
 unsigned long last_sec_millis = millis(); // Sauvegarde dernière valeur lors décompte 1 seconde
+short led_twinkle = 0; // Stocker PIN
+bool TWINKLE_STATE = false; // Savoir si éteinte ou allumée
+unsigned long last_twinkle = 0; // Stockage millis clignotement pour ne pas clignoter extêmement vite
+
+// Variables capteurs
+short start_temp = 0; // Température au démarrage
+float moy_temp_accu = 0; // Accumulateur température chaque seconde pour calculer moyenne
+float max_diff_temp = 0; // Ecart maximum avec la moyenne
+unsigned long moy_lumi_accu = 0; // Accumulateur lumière chaque seconde pour calculer moyenne
+short max_diff_lumi = 0; // Ecart maximum avec la moyenne
+float temp_mes = -1; // Température mesurée en degrés
+int lum_mes = -1; // Valeur mesurée en % capteur lumière
+
 
 
 // -- Fonction générales --
@@ -127,10 +140,16 @@ void MF_reset(){
 
 // Configurer les variables des LEDs selon Menu
 void MF_leds(int led, bool twinkle = false){
-  /*
-   * TODO
-   * - variables des LEDs et agir sur celles-ci
-   */
+  digitalWrite(LED_G, LOW);
+  digitalWrite(LED_R, LOW);
+
+  digitalWrite(led, HIGH);
+  if(twinkle){
+    led_twinkle = led;
+    TWINKLE_STATE = true;
+  }else{
+    led_twinkle = 0;
+  }
 }
 
 // Titre d'un menu
@@ -241,7 +260,7 @@ void M_Menu(int selected = 0){
 /* TODO
  * - Afficher temp et lum moy
  */
-void M_Finish(unsigned long time, bool aborted = false){
+void M_Finish(unsigned long time, bool aborted = false, String moy_temp = "??", String moy_perc_lum = "??"){
   LOC = "finish";
   select = false;
   MF_leds(LED_G);
@@ -249,32 +268,26 @@ void M_Finish(unsigned long time, bool aborted = false){
   MF_title("EXPERIENCE TERMINEE");
   MF_text("Temps d'exposition", "C");
   MF_text(time_sec_toStr(time), "C");
-  MF_text("Temp. moy.: ?? C"); // 
-  MF_text("Lumi. moy.: ??%");
+  MF_text("Temp. moy.: "+ moy_temp +" C"); // 
+  MF_text("Lumi. moy.: "+ moy_perc_lum +" %");
   if(aborted){
     MF_text("ARRETEE", "C");
   }
 }
 
 // En cours de réaction
-/*
- * TODO
- * - Température actuelle
- * - Pourcentage lumineux
- * - Arrêter
- */
 void M_Started(int selected=0, bool pause = false, String temp = "??", String perc_lum = "??"){
   LOC = "started";
   select = true;
   maxSelect = 2;
-  MF_leds(LED_G, true);
+  MF_leds(LED_G, (pause)?false:true);
   MF_reset();
   String pause_txt = (pause)? "PAUSE" : "REACTION EN COURS...";
   MF_title(pause_txt);
   MF_text("Passe: "+ time_sec_toStr(time_to_sec(duration_val)-time_left) +"  |  "+ String(map(time_to_sec(duration_val)-time_left, 0,time_to_sec(duration_val), 0,100)) +"%");
   MF_text("Restant: "+ time_sec_toStr(time_left));
   MF_text("Fin: "+ time_sec_toStr(time_to_sec(duration_val)));
-  MF_text("Temp: "+ temp +" C", "L", false);
+  MF_text("Temp: "+ temp +"C", "L", false);
   MF_text("Lum: "+ perc_lum +"%", "R");
   pause_txt = (pause)? "Reprendre" : "Pause";
   MF_button(pause_txt, (selected==1)? true:false, "BL", false);
@@ -307,13 +320,17 @@ void M_Duration(int selected=1, int value=1){
       unsigned long temp_time = duration_val[5]; // Dépassement de capacité
       time_left += 10*(3600*temp_time);
       
-      if(time_left < 10){ // Durée minimum pour lancer
-        /* ERREUR A EXPLIQUER ?? -> DURÉE TROP PETITE */
-      }else{
+      if(time_left > 1){ // Durée minimum pour lancer
         CURSOR = 0; // Rien sélectionné
         // Démarrer réaction
         REACTING = 2;
 
+        moy_temp_accu = 0;
+        max_diff_temp = 0;
+        moy_lumi_accu = 0;
+        max_diff_lumi = 0;
+        temp_mes = -1;
+        lum_mes = -1;
         M_Started();
       }
     }else if(selected==8){
@@ -370,8 +387,8 @@ void M_Infos(){
 
 // Erreurs
 void M_Error(int errID=0){
-  String erreurs[4] = {"Erreur inconnue", "Sécurité LED", "LED ON pas M_Started"};
-  String solutions[4] = {"", "Relancer expérience", ""};
+  String erreurs[7] = {"Erreur inconnue", "Sécurité LED", "LED ON pas M_Started", "Temperature haute", "Temperature basse", "Disfonctionnement LED"};
+  String solutions[7] = {"", "Relancer expérience", "", "Temp. trop haute", "Temp. trop basse", "Verifier LED/branch."};
   String solution = solutions[errID];
   if(solution == ""){ // Erreur défaut
     solution = "Eteindre/Rallumer";
@@ -379,7 +396,7 @@ void M_Error(int errID=0){
   
   LOC = "error";
   select = false;
-  MF_leds(LED_R, true);
+  MF_leds(LED_R);
   MF_reset();
   MF_title("ERREUR n" + String(errID));
   MF_text("PROBLEME:");
