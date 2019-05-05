@@ -1,5 +1,5 @@
-// Code photoréacteur 0.1
-const String version = "0.1";
+// Code photoréacteur 1.0
+const String version = "1.0";
 const String version_hardware = "1.0";
 /*
  * PRIORITY
@@ -293,13 +293,12 @@ void MF_button(String text, bool select = false, String place="C", bool jump=tru
 void M_Menu(int selected = 0){
   LOC = "home";
   select = true;
-  maxSelect = 3;
+  maxSelect = 2;
   MF_leds(LED_G);
   MF_reset();
   MF_title("MENU");
   MF_button("Lancer Experience", (selected==1)? true:false);
-  MF_button("Aide", (selected==2)? true:false);
-  MF_button("Infos", (selected==3)? true:false);
+  MF_button("Infos", (selected==2)? true:false);
   MF_text("v"+version, "BR");
 }
 
@@ -476,7 +475,7 @@ void clickGestionary(){
         CURSOR_CLICK = 1;
         M_Duration();
         break;
-      case 3:
+      case 2:
         M_Infos();
         break;
     }

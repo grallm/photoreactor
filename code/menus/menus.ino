@@ -419,7 +419,7 @@ void setup() {
   LCD.WorkingModeConf(OFF, ON, WM_CharMode); // Pas LOGO, Rétro éclairage,
 
 
-  M_Error(2);
+  M_Error();
 }
 
 void loop() {
